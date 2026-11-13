@@ -1,0 +1,121 @@
+
+import express from 'express'
+import cors from 'cors'
+import cookieParser from 'cookie-parser'
+
+import authRoutes from './routes/authRoutes.js'
+import passwordResetRoutes from './routes/passwordResetRoutes.js'
+
+import pondRoutes from './routes/pondRoutes.js'
+
+import fishSpeciesRoutes from './routes/fishSpeciesRoutes.js'
+import fishStockingRoutes from './routes/fishStockingRoutes.js'
+
+import feedTypeRoutes from './routes/feedTypeRoutes.js'
+import feedSupplierRoutes from './routes/feedSupplierRoutes.js'
+import feedPurchaseRoutes from './routes/feedPurchaseRoutes.js'
+import dailyFeedingRoutes from './routes/dailyFeedingRoutes.js'
+import feedStockRoutes from './routes/feedStockRoutes.js'
+
+import fishMortalityRoutes from './routes/fishMortalityRoutes.js'
+import fishHarvestRoutes from './routes/fishHarvestRoutes.js'
+import fishSaleRoutes from './routes/fishSaleRoutes.js'
+
+import dealerRoutes from './routes/dealerRoutes.js'
+
+import expenseRoutes from './routes/expenseRoutes.js'
+
+const app = express()
+
+// ==========================================
+// MIDDLEWARE
+// ==========================================
+
+app.use(cors({
+  origin: process.env.CLIENT_URL,
+  credentials: true,
+}))
+
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+app.use(cookieParser())
+
+// ==========================================
+// AUTHENTICATION ROUTES
+// ==========================================
+
+app.use('/auth', authRoutes)
+
+app.use('/password-reset', passwordResetRoutes)
+
+// ==========================================
+// POND MANAGEMENT ROUTES
+// ==========================================
+
+app.use('/ponds', pondRoutes)
+
+// ==========================================
+// FISH MANAGEMENT ROUTES
+// ==========================================
+
+app.use('/fish-species', fishSpeciesRoutes)
+
+app.use('/fish-stockings', fishStockingRoutes)
+
+app.use('/fish-mortalities', fishMortalityRoutes)
+
+app.use('/fish-harvests', fishHarvestRoutes)
+
+app.use('/fish-sales', fishSaleRoutes)
+
+// ==========================================
+// FEED MANAGEMENT ROUTES
+// ==========================================
+
+app.use('/feed-types', feedTypeRoutes)
+
+app.use('/feed-suppliers', feedSupplierRoutes)
+
+app.use('/feed-purchases', feedPurchaseRoutes)
+
+app.use('/daily-feedings', dailyFeedingRoutes)
+
+app.use('/feed-stock', feedStockRoutes)
+
+// ==========================================
+// DEALER MANAGEMENT ROUTES
+// ==========================================
+
+app.use('/dealers', dealerRoutes)
+
+// ==========================================
+// EXPENSE MANAGEMENT ROUTES
+// ==========================================
+
+app.use('/expenses', expenseRoutes)
+
+// ==========================================
+// ROOT ROUTE
+// ==========================================
+
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Fishery Management System API is running!',
+    environment: process.env.NODE_ENV,
+  })
+})
+
+// ==========================================
+// HEALTH CHECK ROUTE
+// ==========================================
+
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Fishery API is healthy.',
+    timestamp: new Date().toISOString(),
+  })
+})
+
+export default app

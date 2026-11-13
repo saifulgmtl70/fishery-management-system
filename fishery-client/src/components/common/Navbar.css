@@ -1,0 +1,468 @@
+
+/* =========================================
+   TOP INFORMATION BAR
+========================================= */
+
+.fishery-topbar {
+  position: relative;
+  z-index: 51;
+  background: var(--fishery-mint);
+  border-bottom: 1px solid #e1ede4;
+}
+
+.fishery-topbar-inner {
+  min-height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: #426b52;
+  font-size: 11px;
+  letter-spacing: 0.025em;
+}
+
+.fishery-topbar-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fishery-topbar-inner svg {
+  color: var(--fishery-green);
+  flex-shrink: 0;
+}
+
+.fishery-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #829386;
+}
+
+.topbar-dot {
+  color: #b4c9b8;
+}
+
+/* =========================================
+   MAIN HEADER
+========================================= */
+
+.fishery-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.97);
+  border-bottom: 1px solid var(--fishery-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.fishery-navbar {
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+/* =========================================
+   BRAND IDENTITY
+========================================= */
+
+.fishery-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  width: fit-content;
+  text-decoration: none;
+}
+
+.fishery-brand-mark {
+  position: relative;
+  width: 43px;
+  height: 43px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  background: linear-gradient(145deg, #20ae69 0%, #128b51 100%);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(21, 155, 96, 0.16);
+  transition: transform 250ms ease, box-shadow 250ms ease;
+}
+
+.fishery-brand:hover .fishery-brand-mark {
+  transform: translateY(-2px);
+  box-shadow: 0 7px 16px rgba(21, 155, 96, 0.22);
+}
+
+.brand-mark-dot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  right: 7px;
+  bottom: 7px;
+  background: #b5f0c9;
+  border: 1.5px solid #159b60;
+  border-radius: 50%;
+}
+
+.fishery-brand-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.fishery-brand-name {
+  color: #172f24;
+  font-size: 25px;
+  line-height: 1;
+  font-weight: 850;
+  letter-spacing: -1.25px;
+}
+
+.fishery-brand-name span {
+  color: var(--fishery-green);
+}
+
+.fishery-brand-tagline {
+  margin-top: 6px;
+  color: #87968b;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.55px;
+}
+
+/* =========================================
+   DESKTOP NAVIGATION
+========================================= */
+
+.fishery-desktop-nav {
+  height: 78px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(20px, 2.5vw, 38px);
+}
+
+.fishery-nav-link {
+  position: relative;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  color: #38483e;
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 200ms ease;
+}
+
+.fishery-nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 5px;
+  background: var(--fishery-green);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 220ms ease;
+}
+
+.fishery-nav-link:hover,
+.fishery-nav-link.active {
+  color: var(--fishery-green-dark);
+}
+
+.fishery-nav-link:hover::after,
+.fishery-nav-link.active::after {
+  transform: scaleX(1);
+}
+
+/* =========================================
+   MANAGEMENT PORTAL BUTTON
+========================================= */
+
+.fishery-header-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.fishery-portal-button {
+  min-height: 43px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-inline: 17px;
+  color: white;
+  background: var(--fishery-green);
+  border: 1px solid var(--fishery-green);
+  border-radius: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 650;
+  box-shadow: 0 3px 8px rgba(21, 155, 96, 0.10);
+  transition: background 200ms ease, border-color 200ms ease,
+    transform 200ms ease, box-shadow 200ms ease;
+}
+
+.fishery-portal-button:hover {
+  color: white;
+  background: var(--fishery-primary);
+  border-color: var(--fishery-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(18, 61, 53, 0.14);
+}
+
+.fishery-portal-button svg {
+  transition: transform 200ms ease;
+}
+
+.fishery-portal-button:hover svg {
+  transform: translate(2px, -2px);
+}
+
+/* =========================================
+   MOBILE MENU BUTTON
+========================================= */
+
+.fishery-menu-toggle {
+  display: none;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  color: var(--fishery-primary);
+  background: #f5f8f5;
+  border: 1px solid var(--fishery-border);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: color 200ms ease, background 200ms ease;
+}
+
+.fishery-menu-toggle:hover,
+.fishery-menu-toggle.is-open {
+  color: var(--fishery-green-dark);
+  background: var(--fishery-mint);
+}
+
+/* =========================================
+   MOBILE NAVIGATION
+========================================= */
+
+.fishery-mobile-nav {
+  display: none;
+}
+
+.fishery-mobile-nav-inner {
+  padding: 20px 24px 22px;
+  background: white;
+}
+
+.mobile-nav-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: #89968c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+.mobile-nav-heading-line {
+  height: 1px;
+  flex: 1;
+  background: var(--fishery-border);
+}
+
+.fishery-mobile-link {
+  min-height: 47px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 13px;
+  color: #405046;
+  border-radius: 7px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.fishery-mobile-link svg {
+  color: #9aa99d;
+  transition: transform 180ms ease;
+}
+
+.fishery-mobile-link:hover,
+.fishery-mobile-link.active {
+  color: var(--fishery-green-dark);
+  background: var(--fishery-mint);
+}
+
+.fishery-mobile-link:hover svg {
+  transform: translateX(3px);
+  color: var(--fishery-green);
+}
+
+.fishery-mobile-portal {
+  min-height: 47px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+  color: white;
+  background: var(--fishery-green);
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 650;
+  transition: background 200ms ease;
+}
+
+.fishery-mobile-portal:hover {
+  background: var(--fishery-primary);
+}
+
+.mobile-nav-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  color: #8b9a8f;
+  border-top: 1px solid var(--fishery-border);
+  font-size: 10px;
+}
+
+.mobile-nav-footer svg {
+  color: var(--fishery-green);
+  flex-shrink: 0;
+}
+
+/* =========================================
+   ACCESSIBILITY
+========================================= */
+
+.fishery-brand:focus-visible,
+.fishery-nav-link:focus-visible,
+.fishery-portal-button:focus-visible,
+.fishery-menu-toggle:focus-visible,
+.fishery-mobile-link:focus-visible,
+.fishery-mobile-portal:focus-visible {
+  outline: 3px solid #7bd5a0;
+  outline-offset: 4px;
+}
+
+/* =========================================
+   RESPONSIVENESS
+========================================= */
+
+@media (max-width: 1100px) {
+  .fishery-desktop-nav {
+    gap: 19px;
+  }
+
+  .fishery-nav-link {
+    font-size: 12px;
+  }
+
+  .fishery-brand-name {
+    font-size: 23px;
+  }
+
+  .fishery-portal-button {
+    padding-inline: 12px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 850px) {
+  .fishery-navbar {
+    min-height: 70px;
+    grid-template-columns: 1fr auto;
+  }
+
+  .fishery-desktop-nav,
+  .fishery-header-action {
+    display: none;
+  }
+
+  .fishery-menu-toggle {
+    display: inline-flex;
+  }
+
+  .fishery-mobile-nav {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    visibility: hidden;
+    border-top: 0 solid var(--fishery-border);
+    transition: grid-template-rows 260ms ease, opacity 200ms ease,
+      visibility 200ms ease;
+  }
+
+  .fishery-mobile-nav.is-open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    visibility: visible;
+    border-top-width: 1px;
+  }
+
+  .fishery-mobile-nav-inner {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .fishery-mobile-nav:not(.is-open) .fishery-mobile-nav-inner {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .fishery-topbar-inner {
+    min-height: 32px;
+    font-size: 10px;
+  }
+
+  .fishery-topbar-right {
+    display: none;
+  }
+
+  .fishery-navbar {
+    min-height: 66px;
+  }
+
+  .fishery-brand-mark {
+    width: 39px;
+    height: 39px;
+    border-radius: 10px;
+  }
+
+  .fishery-brand-name {
+    font-size: 23px;
+  }
+
+  .fishery-brand-tagline {
+    font-size: 7px;
+    letter-spacing: 1.3px;
+  }
+
+  .fishery-menu-toggle {
+    width: 39px;
+    height: 39px;
+  }
+
+  .fishery-mobile-nav-inner {
+    padding-inline: 18px;
+  }
+}

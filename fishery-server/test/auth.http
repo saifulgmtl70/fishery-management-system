@@ -1,0 +1,23 @@
+### Customer Registration
+POST http://localhost:5000/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test Customer",
+  "email": "customer@test.com",
+  "phone": "01712345678",
+  "password": "Customer123!",
+  "role": "customer"
+}
+
+### Dealer Registration
+POST http://localhost:5000/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test Dealer",
+  "email": "dealer@test.com",
+  "phone": "01812345678",
+  "password": "Dealer123!",
+  "role": "dealer"
+}

@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from 'react'
 import {
   Plus,
@@ -12,6 +13,7 @@ import {
   LoaderCircle,
   RefreshCw,
   Save,
+  Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../../../services/api'
@@ -46,6 +48,7 @@ function ExpenseManagement() {
   const [expenses, setExpenses] = useState([])
   const [feedPurchases, setFeedPurchases] = useState([])
   const [fishStockings, setFishStockings] = useState([])
+  const [salaryRecords, setSalaryRecords] = useState([])
   const [categories, setCategories] = useState([])
 
   const [searchTerm, setSearchTerm] = useState('')
@@ -59,7 +62,10 @@ function ExpenseManagement() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  // Fetch all three expense sources
+  // ==========================================
+  // FETCH ALL EXPENSE SOURCES
+  // ==========================================
+
   const fetchExpenses = async () => {
     try {
       setLoading(true)
@@ -68,10 +74,17 @@ function ExpenseManagement() {
         api.get('/expenses'),
         api.get('/feed-purchases'),
         api.get('/fish-stockings'),
+        api.get('/staff/salaries/all'),
       ])
 
-      const [manualResult, feedResult, stockingResult] = results
+      const [
+        manualResult,
+        feedResult,
+        stockingResult,
+        salaryResult,
+      ] = results
 
+      // Manual expenses
       if (manualResult.status === 'fulfilled') {
         setExpenses(manualResult.value.data.data || [])
       } else {
@@ -80,6 +93,7 @@ function ExpenseManagement() {
         toast.error('Failed to load manual expenses.')
       }
 
+      // Feed purchases
       if (feedResult.status === 'fulfilled') {
         setFeedPurchases(feedResult.value.data.purchases || [])
       } else {
@@ -88,12 +102,26 @@ function ExpenseManagement() {
         toast.error('Failed to load feed purchases.')
       }
 
+      // Fish stocking purchases
       if (stockingResult.status === 'fulfilled') {
         setFishStockings(stockingResult.value.data.stockings || [])
       } else {
         setFishStockings([])
         console.error('Fish Stockings Error:', stockingResult.reason)
         toast.error('Failed to load fish stocking purchases.')
+      }
+
+      // Staff salary snapshots
+      if (salaryResult.status === 'fulfilled') {
+        const data = salaryResult.value.data?.data
+
+        setSalaryRecords(
+          Array.isArray(data?.records) ? data.records : []
+        )
+      } else {
+        setSalaryRecords([])
+        console.error('Staff Salary Error:', salaryResult.reason)
+        toast.error('Failed to load staff salary records.')
       }
     } catch (error) {
       console.error('Fetch Expenses Error:', error)
@@ -103,7 +131,10 @@ function ExpenseManagement() {
     }
   }
 
-  // Fetch expense categories
+  // ==========================================
+  // FETCH EXPENSE CATEGORIES
+  // ==========================================
+
   const fetchCategories = async () => {
     try {
       const response = await api.get('/expenses/categories')
@@ -124,8 +155,12 @@ function ExpenseManagement() {
     fetchCategories()
   }, [])
 
-  // Normalize all expense sources
+  // ==========================================
+  // NORMALIZE ALL EXPENSE SOURCES
+  // ==========================================
+
   const allExpenses = useMemo(() => {
+    // Manual expenses
     const manualRecords = expenses.map((expense) => ({
       ...expense,
       record_id: `manual-${expense.id}`,
@@ -137,6 +172,7 @@ function ExpenseManagement() {
       reference_number: expense.reference_number || '',
     }))
 
+    // Feed purchases
     const feedRecords = feedPurchases.map((purchase) => ({
       ...purchase,
       record_id: `feed-${purchase.id}`,
@@ -156,6 +192,7 @@ function ExpenseManagement() {
       reference_number: purchase.invoice_number || '',
     }))
 
+    // Fish stocking purchases
     const stockingRecords = fishStockings.map((stocking) => ({
       ...stocking,
       record_id: `stocking-${stocking.id}`,
@@ -175,16 +212,37 @@ function ExpenseManagement() {
       reference_number: '',
     }))
 
+    // Staff salary snapshots (READ-ONLY)
+    const salaryExpenseRecords = salaryRecords.map((record) => ({
+      ...record,
+      record_id: `salary-${record.id}`,
+      source: 'Staff Salary',
+      category_name: 'Staff Salary',
+      expense_date: getDateString(record.salary_month),
+      amount: Number(record.salary_amount || 0),
+      description: `${record.name || 'Staff'} - ${record.designation || 'Staff'}`,
+      reference_number: `SAL-${getDateString(
+        record.salary_month
+      )
+        .slice(0, 7)
+        .replace('-', '')}`,
+    }))
+
+    // Combine all sources
     return [
       ...manualRecords,
       ...feedRecords,
       ...stockingRecords,
+      ...salaryExpenseRecords,
     ].sort((a, b) => {
       return b.expense_date.localeCompare(a.expense_date)
     })
-  }, [expenses, feedPurchases, fishStockings])
+  }, [expenses, feedPurchases, fishStockings, salaryRecords])
 
-  // Category filter options
+  // ==========================================
+  // CATEGORY FILTER OPTIONS
+  // ==========================================
+
   const categoryOptions = useMemo(() => {
     const names = allExpenses
       .map((expense) => expense.category_name)
@@ -193,7 +251,10 @@ function ExpenseManagement() {
     return [...new Set(names)].sort()
   }, [allExpenses])
 
-  // Filter all expense records
+  // ==========================================
+  // FILTER ALL EXPENSE RECORDS
+  // ==========================================
+
   const filteredExpenses = useMemo(() => {
     return allExpenses.filter((expense) => {
       const search = searchTerm.toLowerCase()
@@ -209,6 +270,8 @@ function ExpenseManagement() {
         expense.brand,
         expense.invoice_number,
         expense.source,
+        expense.name,
+        expense.designation,
       ]
 
       const matchesSearch = searchableFields.some((field) =>
@@ -227,17 +290,23 @@ function ExpenseManagement() {
     })
   }, [allExpenses, searchTerm, selectedCategory, selectedSource])
 
-  // Calculate totals
+  // ==========================================
+  // CALCULATE TOTALS
+  // ==========================================
+
   const summary = useMemo(() => {
     const now = new Date()
     const currentMonth = now.getMonth()
     const currentYear = now.getFullYear()
 
+    // Total expenses from all sources
     const totalExpenses = allExpenses.reduce(
-      (total, expense) => total + Number(expense.amount || 0),
+      (total, expense) =>
+        total + Number(expense.amount || 0),
       0
     )
 
+    // Current month expenses
     const monthlyExpenses = allExpenses
       .filter((expense) => {
         const date = new Date(
@@ -250,25 +319,36 @@ function ExpenseManagement() {
         )
       })
       .reduce(
-        (total, expense) => total + Number(expense.amount || 0),
+        (total, expense) =>
+          total + Number(expense.amount || 0),
         0
       )
 
+    // Feed purchases
     const totalFeedPurchases = feedPurchases.reduce(
       (total, purchase) =>
         total + Number(purchase.total_cost || 0),
       0
     )
 
+    // Fish stocking purchases
     const totalStockingPurchases = fishStockings.reduce(
       (total, stocking) =>
         total + Number(stocking.total_cost || 0),
       0
     )
 
+    // Manual expenses
     const totalManualExpenses = expenses.reduce(
       (total, expense) =>
         total + Number(expense.amount || 0),
+      0
+    )
+
+    // Staff salaries
+    const totalSalaryExpenses = salaryRecords.reduce(
+      (total, record) =>
+        total + Number(record.salary_amount || 0),
       0
     )
 
@@ -278,8 +358,13 @@ function ExpenseManagement() {
       totalFeedPurchases,
       totalStockingPurchases,
       totalManualExpenses,
+      totalSalaryExpenses,
     }
-  }, [allExpenses, feedPurchases, fishStockings, expenses])
+  }, [allExpenses, feedPurchases, fishStockings, expenses, salaryRecords])
+
+  // ==========================================
+  // SUMMARY CARDS
+  // ==========================================
 
   const summaryCards = [
     {
@@ -314,17 +399,33 @@ function ExpenseManagement() {
       color: 'text-emerald-600',
       bg: 'bg-emerald-50',
     },
+    {
+      title: 'Staff Salary',
+      value: formatCurrency(summary.totalSalaryExpenses),
+      description: `${salaryRecords.length} salary records`,
+      icon: Users,
+      color: 'text-violet-600',
+      bg: 'bg-violet-50',
+    },
   ]
 
-  // Open Add Modal
+  // ==========================================
+  // OPEN ADD MODAL
+  // ==========================================
+
   const handleAddExpense = () => {
     setEditingExpense(null)
     setFormData(initialFormData)
     setShowModal(true)
   }
 
-  // Open Edit Modal
+  // ==========================================
+  // OPEN EDIT MODAL
+  // ==========================================
+
   const handleEditExpense = (expense) => {
+    if (expense.source !== 'Manual') return
+
     setEditingExpense(expense)
 
     setFormData({
@@ -340,7 +441,10 @@ function ExpenseManagement() {
     setShowModal(true)
   }
 
-  // Form input handler
+  // ==========================================
+  // FORM INPUT HANDLER
+  // ==========================================
+
   const handleChange = (event) => {
     const { name, value } = event.target
 
@@ -350,7 +454,10 @@ function ExpenseManagement() {
     }))
   }
 
-  // Save or update manual expense
+  // ==========================================
+  // SAVE OR UPDATE MANUAL EXPENSE
+  // ==========================================
+
   const handleSubmit = async (event) => {
     event.preventDefault()
 
@@ -394,12 +501,17 @@ function ExpenseManagement() {
       console.error('Save Expense Error:', error)
 
       toast.error(
-        error.response?.data?.message || 'Failed to save expense.'
+        error.response?.data?.message ||
+          'Failed to save expense.'
       )
     } finally {
       setSaving(false)
     }
   }
+
+  // ==========================================
+  // CLOSE MODAL
+  // ==========================================
 
   const closeModal = () => {
     if (saving) return
@@ -408,6 +520,10 @@ function ExpenseManagement() {
     setEditingExpense(null)
     setFormData(initialFormData)
   }
+
+  // ==========================================
+  // UI
+  // ==========================================
 
   return (
     <div className="space-y-6">
@@ -423,7 +539,7 @@ function ExpenseManagement() {
           </h1>
 
           <p className="mt-1 text-sm text-gray-500">
-            Track manual expenses, feed purchases and fish stocking costs.
+            Track manual expenses, feed purchases, fish stocking and staff salaries.
           </p>
         </div>
 
@@ -453,7 +569,7 @@ function ExpenseManagement() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((card) => {
           const Icon = card.icon
 
@@ -488,13 +604,14 @@ function ExpenseManagement() {
         })}
       </div>
 
-      {/* Source Summary */}
+      {/* Expense Source Summary */}
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <h2 className="font-bold text-[#123D35]">
           Expense Source Summary
         </h2>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Manual */}
           <div className="rounded-lg bg-gray-50 p-4">
             <p className="text-xs font-medium text-gray-500">
               Manual Expenses
@@ -509,6 +626,7 @@ function ExpenseManagement() {
             </p>
           </div>
 
+          {/* Feed */}
           <div className="rounded-lg bg-amber-50 p-4">
             <p className="text-xs font-medium text-amber-700">
               Feed Purchases
@@ -523,6 +641,7 @@ function ExpenseManagement() {
             </p>
           </div>
 
+          {/* Stocking */}
           <div className="rounded-lg bg-emerald-50 p-4">
             <p className="text-xs font-medium text-emerald-700">
               Fish Stocking Purchases
@@ -534,6 +653,21 @@ function ExpenseManagement() {
 
             <p className="mt-1 text-xs text-gray-400">
               {fishStockings.length} records
+            </p>
+          </div>
+
+          {/* Staff Salary */}
+          <div className="rounded-lg bg-violet-50 p-4">
+            <p className="text-xs font-medium text-violet-700">
+              Staff Salary
+            </p>
+
+            <p className="mt-2 text-lg font-bold text-gray-800">
+              {formatCurrency(summary.totalSalaryExpenses)}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-400">
+              {salaryRecords.length} records
             </p>
           </div>
         </div>
@@ -549,7 +683,7 @@ function ExpenseManagement() {
               </h2>
 
               <p className="mt-1 text-xs text-gray-500">
-                All expenses from manual records, feed and fish stocking.
+                All expenses from manual records, feed, fish stocking and staff salaries.
               </p>
             </div>
 
@@ -606,6 +740,7 @@ function ExpenseManagement() {
                 <option value="Manual">Manual</option>
                 <option value="Feed Purchase">Feed Purchase</option>
                 <option value="Fish Stocking">Fish Stocking</option>
+                <option value="Staff Salary">Staff Salary</option>
               </select>
             </div>
           </div>
@@ -669,7 +804,9 @@ function ExpenseManagement() {
                             ? 'bg-emerald-50 text-emerald-700'
                             : expense.source === 'Feed Purchase'
                               ? 'bg-amber-50 text-amber-700'
-                              : 'bg-blue-50 text-blue-700'
+                              : expense.source === 'Fish Stocking'
+                                ? 'bg-blue-50 text-blue-700'
+                                : 'bg-violet-50 text-violet-700'
                         }`}
                       >
                         {expense.source}
@@ -693,7 +830,9 @@ function ExpenseManagement() {
                           </button>
                         ) : (
                           <span className="text-xs text-gray-400">
-                            Managed in module
+                            {expense.source === 'Staff Salary'
+                              ? 'Managed in Staff Management'
+                              : 'Managed in module'}
                           </span>
                         )}
                       </div>
@@ -721,6 +860,7 @@ function ExpenseManagement() {
           </table>
         </div>
 
+        {/* Table Footer */}
         <div className="border-t border-gray-100 px-5 py-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-gray-400">
@@ -728,7 +868,8 @@ function ExpenseManagement() {
             </p>
 
             <p className="text-sm font-semibold text-gray-700">
-              Filtered Total: {formatCurrency(
+              Filtered Total:{' '}
+              {formatCurrency(
                 filteredExpenses.reduce(
                   (total, expense) =>
                     total + Number(expense.amount || 0),
@@ -745,6 +886,7 @@ function ExpenseManagement() {
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
           <div className="my-auto w-full max-w-lg rounded-2xl bg-white shadow-2xl">
             <form onSubmit={handleSubmit}>
+              {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-gray-100 p-5">
                 <div>
                   <h2 className="font-bold text-[#123D35]">
@@ -768,7 +910,9 @@ function ExpenseManagement() {
                 </button>
               </div>
 
+              {/* Modal Body */}
               <div className="space-y-4 p-5">
+                {/* Category */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">
                     Expense Category *
@@ -796,11 +940,13 @@ function ExpenseManagement() {
                   </select>
 
                   <p className="mt-1.5 text-xs text-gray-400">
-                    Feed and fish stocking purchases are automatically
-                    recorded from their respective modules.
+                    Feed, fish stocking and staff salary expenses
+                    are automatically recorded from their
+                    respective modules.
                   </p>
                 </div>
 
+                {/* Date */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">
                     Expense Date *
@@ -817,6 +963,7 @@ function ExpenseManagement() {
                   />
                 </div>
 
+                {/* Amount */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">
                     Amount (৳) *
@@ -835,6 +982,7 @@ function ExpenseManagement() {
                   />
                 </div>
 
+                {/* Description */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">
                     Description
@@ -851,6 +999,7 @@ function ExpenseManagement() {
                   />
                 </div>
 
+                {/* Reference */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">
                     Reference Number
@@ -867,6 +1016,7 @@ function ExpenseManagement() {
                   />
                 </div>
 
+                {/* Payment Method */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">
                     Payment Method
@@ -887,6 +1037,7 @@ function ExpenseManagement() {
                   </select>
                 </div>
 
+                {/* Notes */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">
                     Notes
@@ -902,6 +1053,7 @@ function ExpenseManagement() {
                   />
                 </div>
 
+                {/* Modal Footer */}
                 <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
                   <button
                     type="button"

@@ -18,6 +18,7 @@ import {
   ArrowDownRight,
   Activity,
   Clock3,
+  Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../../services/api'
@@ -39,11 +40,11 @@ const formatNumber = (value, decimals = 2) =>
 const formatDate = (date) => {
   if (!date) return '—'
 
-  const parsedDate = new Date(`${String(date).slice(0, 10)}T00:00:00`)
+  const parsed = new Date(`${String(date).slice(0, 10)}T00:00:00`)
 
-  if (Number.isNaN(parsedDate.getTime())) return '—'
+  if (Number.isNaN(parsed.getTime())) return '—'
 
-  return parsedDate.toLocaleDateString('en-GB', {
+  return parsed.toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -57,8 +58,7 @@ const getActivityDetails = (type) => {
         icon: ShoppingCart,
         color: 'text-blue-600',
         bg: 'bg-blue-50',
-        label: 'Fish Sale',
-        amountLabel: 'Sale Value',
+        border: 'border-blue-100',
         format: 'money',
       }
 
@@ -67,8 +67,7 @@ const getActivityDetails = (type) => {
         icon: Fish,
         color: 'text-emerald-600',
         bg: 'bg-emerald-50',
-        label: 'Fish Stocking',
-        amountLabel: 'Stocking Cost',
+        border: 'border-emerald-100',
         format: 'money',
       }
 
@@ -77,8 +76,7 @@ const getActivityDetails = (type) => {
         icon: AlertCircle,
         color: 'text-red-600',
         bg: 'bg-red-50',
-        label: 'Fish Mortality',
-        amountLabel: 'Weight',
+        border: 'border-red-100',
         format: 'kg',
       }
 
@@ -87,8 +85,7 @@ const getActivityDetails = (type) => {
         icon: Utensils,
         color: 'text-amber-600',
         bg: 'bg-amber-50',
-        label: 'Daily Feeding',
-        amountLabel: 'Feed Quantity',
+        border: 'border-amber-100',
         format: 'kg',
       }
 
@@ -97,8 +94,16 @@ const getActivityDetails = (type) => {
         icon: Receipt,
         color: 'text-orange-600',
         bg: 'bg-orange-50',
-        label: 'Expense',
-        amountLabel: 'Expense Amount',
+        border: 'border-orange-100',
+        format: 'money',
+      }
+
+    case 'Staff Salary':
+      return {
+        icon: Users,
+        color: 'text-purple-600',
+        bg: 'bg-purple-50',
+        border: 'border-purple-100',
         format: 'money',
       }
 
@@ -106,9 +111,8 @@ const getActivityDetails = (type) => {
       return {
         icon: Activity,
         color: 'text-gray-600',
-        bg: 'bg-gray-100',
-        label: type || 'Activity',
-        amountLabel: 'Amount',
+        bg: 'bg-gray-50',
+        border: 'border-gray-100',
         format: 'money',
       }
   }
@@ -116,33 +120,35 @@ const getActivityDetails = (type) => {
 
 const formatActivityAmount = (activity) => {
   if (activity.amount === null || activity.amount === undefined) {
-    return 'Not available'
+    return 'N/A'
   }
 
   const details = getActivityDetails(activity.activity_type)
 
-  if (details.format === 'kg') {
-    return `${formatNumber(activity.amount)} kg`
-  }
-
-  return formatMoney(activity.amount)
+  return details.format === 'kg'
+    ? `${formatNumber(activity.amount)} kg`
+    : formatMoney(activity.amount)
 }
 
 // ==========================================
-// REUSABLE COMPONENTS
+// COMPONENTS
 // ==========================================
 
-function SectionHeading({ title, subtitle, action }) {
+function SectionHeader({ title, subtitle, icon: Icon }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <div className="flex items-center gap-3 mb-5">
+      {Icon && (
+        <div className="w-10 h-10 rounded-xl bg-[#EAF3ED] flex items-center justify-center shrink-0">
+          <Icon size={19} className="text-[#159B60]" />
+        </div>
+      )}
+
       <div>
         <h2 className="text-lg font-bold text-[#123D35]">{title}</h2>
         {subtitle && (
-          <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+          <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>
         )}
       </div>
-
-      {action}
     </div>
   )
 }
@@ -154,18 +160,21 @@ function StatCard({
   icon: Icon,
   iconColor,
   iconBg,
+  accent,
   loading,
 }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+    <div className="relative overflow-hidden bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+      <div className={`absolute top-0 left-0 w-full h-1 ${accent}`} />
+
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-gray-500">{title}</p>
 
           {loading ? (
-            <div className="h-9 w-28 bg-gray-100 rounded-lg animate-pulse mt-3" />
+            <div className="h-8 w-28 bg-gray-100 rounded-md animate-pulse mt-3" />
           ) : (
-            <h3 className="text-2xl font-bold text-[#123D35] mt-3 break-words">
+            <h3 className="text-2xl font-bold text-[#123D35] tracking-tight mt-3 break-words">
               {value}
             </h3>
           )}
@@ -175,7 +184,7 @@ function StatCard({
           )}
         </div>
 
-        <div className={`w-11 h-11 shrink-0 rounded-xl flex items-center justify-center ${iconBg}`}>
+        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>
           <Icon size={21} className={iconColor} />
         </div>
       </div>
@@ -183,7 +192,7 @@ function StatCard({
   )
 }
 
-function ActivityStat({
+function ActivityCard({
   title,
   value,
   subtitle,
@@ -193,36 +202,34 @@ function ActivityStat({
   loading,
 }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-xl p-4">
+    <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all">
       <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${bg}`}>
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${bg}`}>
           <Icon size={19} className={color} />
         </div>
 
         <div className="min-w-0">
-          <p className="text-xs text-gray-500">{title}</p>
+          <p className="text-sm text-gray-500">{title}</p>
 
           {loading ? (
-            <div className="h-6 w-20 bg-gray-100 rounded mt-1 animate-pulse" />
+            <div className="h-6 w-24 bg-gray-100 rounded animate-pulse mt-1" />
           ) : (
-            <h3 className="text-lg font-bold text-[#123D35] mt-0.5">
+            <h3 className="text-xl font-bold text-[#123D35] mt-1">
               {value}
             </h3>
           )}
         </div>
       </div>
 
-      {subtitle && (
-        <p className="text-xs text-gray-400 mt-3">{subtitle}</p>
-      )}
+      <p className="text-xs text-gray-400 mt-3">{subtitle}</p>
     </div>
   )
 }
 
 function EmptyState({ message }) {
   return (
-    <div className="py-10 text-center">
-      <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-3">
+    <div className="py-12 text-center">
+      <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
         <Activity size={22} className="text-gray-400" />
       </div>
       <p className="text-sm text-gray-500">{message}</p>
@@ -231,7 +238,7 @@ function EmptyState({ message }) {
 }
 
 // ==========================================
-// MAIN DASHBOARD
+// MAIN
 // ==========================================
 
 function DashboardHome() {
@@ -251,7 +258,6 @@ function DashboardHome() {
       setError('')
 
       const response = await api.get('/dashboard/overview')
-
       const result = response.data
 
       if (!result?.success || !result?.data) {
@@ -284,7 +290,10 @@ function DashboardHome() {
   const today = dashboard?.today_activity
   const activities = dashboard?.recent_activities || []
 
-  // Income breakdown
+  // ==========================================
+  // INCOME BREAKDOWN
+  // ==========================================
+
   const incomeBreakdown = [
     {
       label: 'Fish Sales',
@@ -308,54 +317,95 @@ function DashboardHome() {
     1
   )
 
-  const netIsLoss = Number(finance?.net_loss || 0) > 0
+  // ==========================================
+  // EXPENSE BREAKDOWN
+  // ==========================================
+
+  const expenseBreakdown = [
+    {
+      label: 'Manual Expenses',
+      value: finance?.manual_expenses || 0,
+      icon: Receipt,
+      color: 'text-orange-600',
+      bg: 'bg-orange-50',
+      accent: 'bg-orange-500',
+    },
+    {
+      label: 'Feed Expenses',
+      value: finance?.feed_expenses || 0,
+      icon: Package,
+      color: 'text-amber-600',
+      bg: 'bg-amber-50',
+      accent: 'bg-amber-500',
+    },
+    {
+      label: 'Fish Stocking Expenses',
+      value: finance?.stocking_expenses || 0,
+      icon: Fish,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50',
+      accent: 'bg-emerald-500',
+    },
+    {
+      label: 'Staff Salary Expenses',
+      value: finance?.staff_salary_expenses || 0,
+      icon: Users,
+      color: 'text-purple-600',
+      bg: 'bg-purple-50',
+      accent: 'bg-purple-500',
+    },
+  ]
+
+  const isLoss = Number(finance?.net_loss || 0) > 0
 
   return (
-    <div className="space-y-8 pb-8">
+    <div className="space-y-8 lg:space-y-10 pb-8">
 
-      {/* ======================================
-          HEADER
-      ====================================== */}
+      {/* HEADER */}
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-[#123D35]">
-            Dashboard Overview
-          </h1>
+      <div className="bg-gradient-to-br from-[#123D35] to-[#17694D] rounded-2xl p-5 sm:p-7 text-white shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
+          <div>
+            <div className="flex items-center gap-2 text-emerald-200 text-xs font-semibold uppercase tracking-wider mb-2">
+              <Activity size={14} />
+              Farm Management
+            </div>
 
-          <p className="text-sm text-gray-500 mt-2">
-            Welcome to your Fishery Management System.
-          </p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Dashboard Overview
+            </h1>
+
+            <p className="text-sm text-white/70 mt-2">
+              Monitor your farm operations, inventory and finances.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => fetchDashboard(true)}
+            disabled={loading || refreshing}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition text-sm font-semibold disabled:opacity-50"
+          >
+            <RefreshCw
+              size={16}
+              className={refreshing ? 'animate-spin' : ''}
+            />
+            {refreshing ? 'Refreshing...' : 'Refresh Data'}
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={() => fetchDashboard(true)}
-          disabled={loading || refreshing}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-[#123D35] hover:bg-gray-50 transition disabled:opacity-50"
-        >
-          <RefreshCw
-            size={16}
-            className={refreshing ? 'animate-spin' : ''}
-          />
-          {refreshing ? 'Refreshing...' : 'Refresh'}
-        </button>
       </div>
 
-      {/* ======================================
-          ERROR STATE
-      ====================================== */}
+      {/* ERROR */}
 
       {error && !dashboard && (
-        <div className="bg-red-50 border border-red-100 rounded-xl p-5">
+        <div className="bg-red-50 border border-red-100 rounded-2xl p-5">
           <div className="flex items-start gap-3">
-            <AlertCircle size={20} className="text-red-500 mt-0.5" />
+            <AlertCircle className="text-red-500 mt-0.5" size={20} />
 
-            <div className="flex-1">
+            <div>
               <h3 className="font-semibold text-red-700">
-                Unable to load dashboard
+                Dashboard unavailable
               </h3>
-
               <p className="text-sm text-red-600 mt-1">{error}</p>
 
               <button
@@ -369,24 +419,24 @@ function DashboardHome() {
         </div>
       )}
 
-      {/* ======================================
-          FARM OVERVIEW
-      ====================================== */}
+      {/* FARM OVERVIEW */}
 
       <section>
-        <SectionHeading
+        <SectionHeader
           title="Farm Overview"
           subtitle="Current status of your fish farm"
+          icon={Waves}
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatCard
             title="Total Ponds"
             value={formatNumber(farm?.total_ponds, 0)}
-            subtitle={`${formatNumber(farm?.active_ponds, 0)} Active Ponds`}
+            subtitle={`${formatNumber(farm?.active_ponds, 0)} active ponds`}
             icon={Waves}
             iconColor="text-blue-600"
             iconBg="bg-blue-50"
+            accent="bg-blue-500"
             loading={loading}
           />
 
@@ -397,6 +447,7 @@ function DashboardHome() {
             icon={Fish}
             iconColor="text-emerald-600"
             iconBg="bg-emerald-50"
+            accent="bg-emerald-500"
             loading={loading}
           />
 
@@ -407,122 +458,128 @@ function DashboardHome() {
             icon={Package}
             iconColor="text-amber-600"
             iconBg="bg-amber-50"
+            accent="bg-amber-500"
             loading={loading}
           />
 
           <StatCard
             title="Outstanding Due"
             value={formatMoney(finance?.outstanding_due)}
-            subtitle="Unpaid fish sales balance"
+            subtitle="Unpaid sales balance"
             icon={Wallet}
             iconColor="text-purple-600"
             iconBg="bg-purple-50"
+            accent="bg-purple-500"
             loading={loading}
           />
         </div>
 
         {!loading && farm && (
-          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 bg-[#EAF3ED] rounded-xl px-4 py-3">
-            <p className="text-sm text-[#123D35]">
-              <span className="font-semibold">
+          <div className="flex flex-wrap gap-3 mt-4">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-xs text-gray-600">Active</span>
+              <span className="text-sm font-bold text-[#123D35]">
                 {formatNumber(farm.active_ponds, 0)}
-              </span>{' '}
-              Active
-            </p>
+              </span>
+            </div>
 
-            <p className="text-sm text-gray-600">
-              <span className="font-semibold">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
+              <span className="w-2 h-2 rounded-full bg-gray-400" />
+              <span className="text-xs text-gray-600">Inactive</span>
+              <span className="text-sm font-bold text-[#123D35]">
                 {formatNumber(farm.inactive_ponds, 0)}
-              </span>{' '}
-              Inactive
-            </p>
+              </span>
+            </div>
 
-            <p className="text-sm text-gray-600">
-              <span className="font-semibold">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-100">
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              <span className="text-xs text-gray-600">Maintenance</span>
+              <span className="text-sm font-bold text-[#123D35]">
                 {formatNumber(farm.maintenance_ponds, 0)}
-              </span>{' '}
-              Under Maintenance
-            </p>
+              </span>
+            </div>
           </div>
         )}
 
         {!loading && farm && (
-          <p className="text-xs text-gray-400 mt-3">
-            Note: Current fish stock is calculated using recorded stocking,
-            mortality weight and sales data. Records without mortality weight
-            may affect the accuracy of this estimate.
+          <p className="text-xs text-gray-400 mt-3 leading-relaxed">
+            Current fish stock is based on recorded stocking, mortality
+            weight and sales. Mortality records without weight may
+            affect the accuracy of this estimate.
           </p>
         )}
       </section>
 
-      {/* ======================================
-          FINANCIAL OVERVIEW
-      ====================================== */}
+      {/* FINANCIAL OVERVIEW */}
 
       <section>
-        <SectionHeading
+        <SectionHeader
           title="Financial Overview"
-          subtitle="Overall income, expenses and financial position"
+          subtitle="Farm income, expenses and financial position"
+          icon={Wallet}
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatCard
             title="Total Income"
             value={formatMoney(finance?.total_income)}
-            subtitle="Fish sales + Lake income"
+            subtitle="All income sources"
             icon={TrendingUp}
             iconColor="text-emerald-600"
             iconBg="bg-emerald-50"
+            accent="bg-emerald-500"
             loading={loading}
           />
 
           <StatCard
             title="Total Expenses"
             value={formatMoney(finance?.total_expenses)}
-            subtitle="All recorded expenses"
+            subtitle="Manual, feed, stocking and salaries"
             icon={TrendingDown}
             iconColor="text-red-600"
             iconBg="bg-red-50"
+            accent="bg-red-500"
             loading={loading}
           />
 
           <StatCard
-            title={netIsLoss ? 'Net Loss' : 'Net Profit'}
-            value={formatMoney(
-              netIsLoss ? finance?.net_loss : finance?.net_profit
-            )}
+            title={isLoss ? 'Net Loss' : 'Net Profit'}
+            value={formatMoney(isLoss ? finance?.net_loss : finance?.net_profit)}
             subtitle="Income minus expenses"
-            icon={netIsLoss ? ArrowDownRight : ArrowUpRight}
-            iconColor={netIsLoss ? 'text-red-600' : 'text-emerald-600'}
-            iconBg={netIsLoss ? 'bg-red-50' : 'bg-emerald-50'}
+            icon={isLoss ? ArrowDownRight : ArrowUpRight}
+            iconColor={isLoss ? 'text-red-600' : 'text-emerald-600'}
+            iconBg={isLoss ? 'bg-red-50' : 'bg-emerald-50'}
+            accent={isLoss ? 'bg-red-500' : 'bg-emerald-500'}
             loading={loading}
           />
 
           <StatCard
-            title="Manual Expenses"
-            value={formatMoney(finance?.manual_expenses)}
-            subtitle="Expenses recorded manually"
-            icon={Receipt}
-            iconColor="text-orange-600"
-            iconBg="bg-orange-50"
+            title="Staff Salary"
+            value={formatMoney(finance?.staff_salary_expenses)}
+            subtitle="Recorded salary expenses"
+            icon={Users}
+            iconColor="text-purple-600"
+            iconBg="bg-purple-50"
+            accent="bg-purple-500"
             loading={loading}
           />
         </div>
 
-        {/* Income Breakdown */}
+        {/* INCOME BREAKDOWN */}
 
         <div className="bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-sm mt-5">
-          <div className="flex items-center justify-between gap-3 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-7">
             <div>
-              <h3 className="font-bold text-[#123D35]">
+              <h3 className="text-base font-bold text-[#123D35]">
                 Income Breakdown
               </h3>
               <p className="text-xs text-gray-500 mt-1">
-                Income contribution by source
+                Revenue contribution by source
               </p>
             </div>
 
-            <div className="text-right">
+            <div className="bg-[#EAF3ED] px-4 py-3 rounded-xl">
               <p className="text-xs text-gray-500">Total Income</p>
               <p className="text-lg font-bold text-[#123D35] mt-1">
                 {loading ? '—' : formatMoney(finance?.total_income)}
@@ -530,103 +587,129 @@ function DashboardHome() {
             </div>
           </div>
 
-          <div className="space-y-5">
+          <div className="space-y-6">
             {incomeBreakdown.map((item) => {
               const percentage =
-                maximumIncome > 0
-                  ? (Number(item.value) / maximumIncome) * 100
-                  : 0
+                (Number(item.value) / maximumIncome) * 100
 
               return (
                 <div key={item.label}>
-                  <div className="flex justify-between items-center gap-3 mb-2">
+                  <div className="flex items-center justify-between gap-3 mb-2">
                     <span className="text-sm font-medium text-gray-600">
                       {item.label}
                     </span>
 
-                    <span className="text-sm font-semibold text-[#123D35]">
+                    <span className="text-sm font-bold text-[#123D35]">
                       {loading ? '—' : formatMoney(item.value)}
                     </span>
                   </div>
 
                   <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all duration-500 ${item.color}`}
-                      style={{
-                        width: loading ? '0%' : `${percentage}%`,
-                      }}
+                      className={`h-full rounded-full ${item.color} transition-all duration-500`}
+                      style={{ width: loading ? '0%' : `${percentage}%` }}
                     />
                   </div>
                 </div>
               )
             })}
           </div>
+        </div>
 
-          {!loading && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-gray-100 mt-6 pt-5">
-              <div>
-                <p className="text-xs text-gray-500">Feed Expenses</p>
-                <p className="font-bold text-[#123D35] mt-1">
-                  {formatMoney(finance?.feed_expenses)}
-                </p>
-              </div>
+        {/* EXPENSE BREAKDOWN */}
 
-              <div>
-                <p className="text-xs text-gray-500">Fish Stocking Expenses</p>
-                <p className="font-bold text-[#123D35] mt-1">
-                  {formatMoney(finance?.stocking_expenses)}
-                </p>
-              </div>
+        <div className="bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-sm mt-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+            <div>
+              <h3 className="text-base font-bold text-[#123D35]">
+                Expense Breakdown
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Expense contribution by category
+              </p>
             </div>
-          )}
+
+            <div className="bg-red-50 px-4 py-3 rounded-xl">
+              <p className="text-xs text-gray-500">Total Expenses</p>
+              <p className="text-lg font-bold text-red-600 mt-1">
+                {loading ? '—' : formatMoney(finance?.total_expenses)}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {expenseBreakdown.map((item) => {
+              const Icon = item.icon
+
+              return (
+                <div
+                  key={item.label}
+                  className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 bg-gray-50/70"
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.bg}`}>
+                    <Icon size={19} className={item.color} />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-gray-500">
+                      {item.label}
+                    </p>
+
+                    <p className="text-lg font-bold text-[#123D35] mt-1">
+                      {loading ? '—' : formatMoney(item.value)}
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </section>
 
-      {/* ======================================
-          TODAY'S ACTIVITY
-      ====================================== */}
+      {/* TODAY'S ACTIVITY */}
 
       <section>
-        <SectionHeading
+        <SectionHeader
           title="Today's Activity"
-          subtitle="Today's farm operations at a glance"
+          subtitle="Daily farm operations summary"
+          icon={Activity}
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <ActivityStat
+          <ActivityCard
             title="Fish Sales"
             value={formatMoney(today?.fish_sales?.total_amount)}
-            subtitle={`${formatNumber(today?.fish_sales?.total_transactions, 0)} Transactions`}
+            subtitle={`${formatNumber(today?.fish_sales?.total_transactions, 0)} transactions`}
             icon={ShoppingCart}
             color="text-blue-600"
             bg="bg-blue-50"
             loading={loading}
           />
 
-          <ActivityStat
+          <ActivityCard
             title="Fish Stocking"
             value={`${formatNumber(today?.fish_stocking?.total_weight_kg)} kg`}
-            subtitle={`${formatNumber(today?.fish_stocking?.total_records, 0)} Records`}
+            subtitle={`${formatNumber(today?.fish_stocking?.total_records, 0)} records`}
             icon={Fish}
             color="text-emerald-600"
             bg="bg-emerald-50"
             loading={loading}
           />
 
-          <ActivityStat
+          <ActivityCard
             title="Fish Mortality"
             value={`${formatNumber(today?.fish_mortality?.total_weight_kg)} kg`}
-            subtitle={`${formatNumber(today?.fish_mortality?.total_records, 0)} Records`}
+            subtitle={`${formatNumber(today?.fish_mortality?.total_records, 0)} records`}
             icon={Scale}
             color="text-red-600"
             bg="bg-red-50"
             loading={loading}
           />
 
-          <ActivityStat
+          <ActivityCard
             title="Daily Feeding"
             value={`${formatNumber(today?.daily_feeding?.total_quantity_kg)} kg`}
-            subtitle={`${formatNumber(today?.daily_feeding?.total_records, 0)} Records`}
+            subtitle={`${formatNumber(today?.daily_feeding?.total_records, 0)} records`}
             icon={Utensils}
             color="text-amber-600"
             bg="bg-amber-50"
@@ -635,31 +718,34 @@ function DashboardHome() {
         </div>
       </section>
 
-      {/* ======================================
-          RECENT ACTIVITIES
-      ====================================== */}
+      {/* RECENT ACTIVITIES */}
 
       <section>
-        <SectionHeading
+        <SectionHeader
           title="Recent Activities"
-          subtitle="Latest 10 recorded farm activities"
-          action={
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 bg-gray-100 px-3 py-2 rounded-lg">
-              <Clock3 size={14} />
-              Latest Records
-            </span>
-          }
+          subtitle="Latest recorded operations across your farm"
+          icon={Clock3}
         />
 
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50/70">
+            <p className="text-sm font-semibold text-[#123D35]">
+              Activity Timeline
+            </p>
+
+            <span className="text-xs text-gray-500">
+              {loading ? '—' : `${activities.length} records`}
+            </span>
+          </div>
+
           {loading ? (
             <div className="p-5 space-y-5">
-              {[1, 2, 3, 4].map((item) => (
-                <div key={item} className="flex items-center gap-4 animate-pulse">
-                  <div className="w-10 h-10 rounded-xl bg-gray-100" />
+              {[1, 2, 3, 4, 5].map((item) => (
+                <div key={item} className="flex gap-4 animate-pulse">
+                  <div className="w-10 h-10 rounded-xl bg-gray-100 shrink-0" />
                   <div className="flex-1">
                     <div className="h-3 w-32 bg-gray-100 rounded" />
-                    <div className="h-3 w-24 bg-gray-100 rounded mt-2" />
+                    <div className="h-3 w-48 bg-gray-100 rounded mt-2" />
                   </div>
                   <div className="h-4 w-20 bg-gray-100 rounded" />
                 </div>
@@ -676,31 +762,25 @@ function DashboardHome() {
                 return (
                   <div
                     key={`${activity.activity_type}-${activity.id}-${index}`}
-                    className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-gray-50/70 transition"
+                    className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-[#F8FBF9] transition-colors"
                   >
-                    <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${details.bg}`}>
-                      <Icon size={19} className={details.color} />
+                    <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center border ${details.bg} ${details.border}`}>
+                      <Icon size={18} className={details.color} />
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-[#123D35]">
-                          {details.label}
-                        </p>
-
-                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${details.bg} ${details.color}`}>
-                          {details.label}
-                        </span>
-                      </div>
+                      <p className="text-sm font-semibold text-[#123D35]">
+                        {activity.activity_type}
+                      </p>
 
                       <p className="text-xs text-gray-500 mt-1 truncate">
                         {activity.description || 'No description'}
                       </p>
 
-                      <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-1.5">
                         <CalendarDays size={12} />
                         {formatDate(activity.activity_date)}
-                      </p>
+                      </div>
                     </div>
 
                     <div className="text-right shrink-0">
@@ -709,7 +789,7 @@ function DashboardHome() {
                       </p>
 
                       <p className="text-[10px] text-gray-400 mt-1">
-                        {details.amountLabel}
+                        {details.format === 'kg' ? 'Weight / Quantity' : 'Amount'}
                       </p>
                     </div>
                   </div>
@@ -719,15 +799,14 @@ function DashboardHome() {
           )}
 
           {!loading && activities.length > 0 && (
-            <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/50">
-              <p className="text-xs text-gray-500 text-center">
-                Showing {activities.length} recent activities
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50">
+              <p className="text-xs text-gray-400 text-center">
+                Showing the latest {activities.length} activities
               </p>
             </div>
           )}
         </div>
       </section>
-
     </div>
   )
 }

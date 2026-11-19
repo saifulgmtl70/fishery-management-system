@@ -13,17 +13,17 @@ export function AuthProvider({ children }) {
     try {
       const response = await api.get('/auth/me')
 
-      if ( response.data.success && response.data.user?.role === 'admin') {
+      if (
+        response.data.success &&
+        response.data.user?.role === 'admin'
+      ) {
         setUser(response.data.user)
-      } 
-      else {
+      } else {
         setUser(null)
       }
-    } 
-    catch (error) {
+    } catch (error) {
       setUser(null)
-    } 
-    finally {
+    } finally {
       setLoading(false)
     }
   }
@@ -36,10 +36,12 @@ export function AuthProvider({ children }) {
   const login = async (credentials) => {
     const response = await api.post('/auth/login', credentials)
 
-    if ( response.data.success && response.data.user?.role === 'admin' ) {
+    if (
+      response.data.success &&
+      response.data.user?.role === 'admin'
+    ) {
       setUser(response.data.user)
-    } 
-    else {
+    } else {
       setUser(null)
       throw new Error('Only administrators can log in.')
     }
@@ -51,10 +53,19 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       await api.post('/auth/logout')
-    } 
-    finally {
+    } finally {
       setUser(null)
     }
+  }
+
+  // Update current user information
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser)
+  }
+
+  // Clear current user session
+  const clearUser = () => {
+    setUser(null)
   }
 
   const value = {
@@ -64,6 +75,8 @@ export function AuthProvider({ children }) {
     login,
     logout,
     checkAuth,
+    updateUser,
+    clearUser,
   }
 
   return (

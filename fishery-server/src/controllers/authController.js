@@ -5,7 +5,7 @@ import db from '../config/db.js'
 import { z } from 'zod'
 
 // ==========================================
-// LOGIN VALIDATION
+// VALIDATION SCHEMAS
 // ==========================================
 
 const loginSchema = z.object({
@@ -13,13 +13,77 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 })
 
+const updateProfileSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Name cannot exceed 100 characters')
+    .optional(),
+
+  email: z
+    .string()
+    .trim()
+    .email('Please provide a valid email')
+    .max(150, 'Email cannot exceed 150 characters')
+    .optional(),
+
+  phone: z
+    .string()
+    .trim()
+    .max(20, 'Phone number cannot exceed 20 characters')
+    .optional(),
+}).refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'Please provide at least one field to update.' }
+)
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+
+  newPassword: z
+    .string()
+    .min(8, 'New password must be at least 8 characters')
+    .max(72, 'New password is too long'),
+
+  confirmPassword: z
+    .string()
+    .min(1, 'Please confirm your new password'),
+}).refine(
+  (data) => data.newPassword === data.confirmPassword,
+  {
+    message: 'New password and confirm password do not match.',
+    path: ['confirmPassword'],
+  }
+).refine(
+  (data) => data.currentPassword !== data.newPassword,
+  {
+    message: 'New password must be different from current password.',
+    path: ['newPassword'],
+  }
+)
+
+// ==========================================
+// COOKIE OPTIONS
+// ==========================================
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  path: '/',
+}
+
+const clearAuthCookie = (res) => {
+  res.clearCookie('fishery_token', cookieOptions)
+}
+
 // ==========================================
 // ADMIN LOGIN
 // ==========================================
 
 export const loginUser = async (req, res) => {
   try {
-    // 1. Validate login information
     const validation = loginSchema.safeParse(req.body)
 
     if (!validation.success) {
@@ -36,9 +100,17 @@ export const loginUser = async (req, res) => {
     const { email, password } = validation.data
     const normalizedEmail = email.toLowerCase()
 
-    // 2. Find account by email
     const [users] = await db.execute(
-      `SELECT id, name, email, phone, password, role, status, token_version
+      `SELECT
+        id,
+        name,
+        email,
+        phone,
+        password,
+        role,
+        status,
+        token_version,
+        profile_image
        FROM users
        WHERE email = ?
        LIMIT 1`,
@@ -54,7 +126,6 @@ export const loginUser = async (req, res) => {
 
     const user = users[0]
 
-    // 3. Only Admin can access the system
     if (user.role !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -62,7 +133,6 @@ export const loginUser = async (req, res) => {
       })
     }
 
-    // 4. Verify password
     const isPasswordCorrect = await bcrypt.compare(
       password,
       user.password
@@ -75,7 +145,6 @@ export const loginUser = async (req, res) => {
       })
     }
 
-    // 5. Check Admin account status
     if (user.status !== 'active') {
       return res.status(403).json({
         success: false,
@@ -83,12 +152,10 @@ export const loginUser = async (req, res) => {
       })
     }
 
-    // 6. Validate JWT secret
     if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
       throw new Error('JWT_SECRET must be at least 32 characters long.')
     }
 
-    // 7. Generate JWT token with token version
     const token = jwt.sign(
       {
         userId: user.id,
@@ -101,16 +168,11 @@ export const loginUser = async (req, res) => {
       }
     )
 
-    // 8. Store token in HttpOnly cookie
     res.cookie('fishery_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...cookieOptions,
       maxAge: 24 * 60 * 60 * 1000,
-      path: '/',
     })
 
-    // 9. Send successful response
     return res.status(200).json({
       success: true,
       message: 'Admin login successful.',
@@ -121,6 +183,7 @@ export const loginUser = async (req, res) => {
         phone: user.phone,
         role: user.role,
         status: user.status,
+        profile_image: user.profile_image,
       },
     })
   } catch (error) {
@@ -139,9 +202,31 @@ export const loginUser = async (req, res) => {
 
 export const getCurrentUser = async (req, res) => {
   try {
+    const [users] = await db.execute(
+      `SELECT
+        id,
+        name,
+        email,
+        phone,
+        role,
+        status,
+        profile_image
+       FROM users
+       WHERE id = ?
+       LIMIT 1`,
+      [req.user.id]
+    )
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin account not found.',
+      })
+    }
+
     return res.status(200).json({
       success: true,
-      user: req.user,
+      user: users[0],
     })
   } catch (error) {
     console.error('Get Current Admin Error:', error)
@@ -154,17 +239,196 @@ export const getCurrentUser = async (req, res) => {
 }
 
 // ==========================================
+// UPDATE ADMIN PROFILE
+// ==========================================
+
+export const updateProfile = async (req, res) => {
+  try {
+    const validation = updateProfileSchema.safeParse(req.body)
+
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed.',
+        errors: validation.error.issues.map((issue) => ({
+          field: issue.path.join('.'),
+          message: issue.message,
+        })),
+      })
+    }
+
+    const updates = validation.data
+    const userId = req.user.id
+
+    const [existingUsers] = await db.execute(
+      `SELECT id, name, email, phone
+       FROM users
+       WHERE id = ?
+       LIMIT 1`,
+      [userId]
+    )
+
+    if (existingUsers.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin account not found.',
+      })
+    }
+
+    const currentUser = existingUsers[0]
+
+    const updatedName = updates.name ?? currentUser.name
+
+    const updatedEmail = updates.email
+      ? updates.email.toLowerCase()
+      : currentUser.email
+
+    const updatedPhone = updates.phone ?? currentUser.phone
+
+    // Check whether the email is already used by another account.
+    if (updatedEmail.toLowerCase() !== currentUser.email.toLowerCase()) {
+      const [emailUsers] = await db.execute(
+        `SELECT id
+         FROM users
+         WHERE email = ?
+         AND id != ?
+         LIMIT 1`,
+        [updatedEmail, userId]
+      )
+
+      if (emailUsers.length > 0) {
+        return res.status(409).json({
+          success: false,
+          message: 'This email address is already registered.',
+        })
+      }
+    }
+
+    await db.execute(
+      `UPDATE users
+       SET name = ?, email = ?, phone = ?
+       WHERE id = ?`,
+      [updatedName, updatedEmail, updatedPhone, userId]
+    )
+
+    const [updatedUsers] = await db.execute(
+      `SELECT
+        id,
+        name,
+        email,
+        phone,
+        role,
+        status,
+        profile_image
+       FROM users
+       WHERE id = ?
+       LIMIT 1`,
+      [userId]
+    )
+
+    return res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully.',
+      user: updatedUsers[0],
+    })
+  } catch (error) {
+    console.error('Update Admin Profile Error:', error)
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update administrator profile.',
+    })
+  }
+}
+
+// ==========================================
+// CHANGE ADMIN PASSWORD
+// ==========================================
+
+export const changePassword = async (req, res) => {
+  try {
+    const validation = changePasswordSchema.safeParse(req.body)
+
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed.',
+        errors: validation.error.issues.map((issue) => ({
+          field: issue.path.join('.'),
+          message: issue.message,
+        })),
+      })
+    }
+
+    const {
+      currentPassword,
+      newPassword,
+    } = validation.data
+
+    const [users] = await db.execute(
+      `SELECT id, password
+       FROM users
+       WHERE id = ?
+       LIMIT 1`,
+      [req.user.id]
+    )
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin account not found.',
+      })
+    }
+
+    const user = users[0]
+
+    const isCurrentPasswordCorrect = await bcrypt.compare(
+      currentPassword,
+      user.password
+    )
+
+    if (!isCurrentPasswordCorrect) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is incorrect.',
+      })
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12)
+
+    // Increment token_version to invalidate existing sessions.
+    await db.execute(
+      `UPDATE users
+       SET password = ?, token_version = token_version + 1
+       WHERE id = ?`,
+      [hashedPassword, req.user.id]
+    )
+
+    // Force the admin to log in again.
+    clearAuthCookie(res)
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password changed successfully. Please log in again.',
+      requiresLogin: true,
+    })
+  } catch (error) {
+    console.error('Change Admin Password Error:', error)
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to change password.',
+    })
+  }
+}
+
+// ==========================================
 // ADMIN LOGOUT
 // ==========================================
 
 export const logoutUser = async (req, res) => {
   try {
-    res.clearCookie('fishery_token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-    })
+    clearAuthCookie(res)
 
     return res.status(200).json({
       success: true,

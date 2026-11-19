@@ -80,7 +80,6 @@ export const getDashboardOverview = async (req, res) => {
 
     // ==========================================
     // 4. FINANCIAL OVERVIEW
-    // Same rules as Finance Controller
     // ==========================================
 
     const [
@@ -90,6 +89,7 @@ export const getDashboardOverview = async (req, res) => {
       manualExpenseRows,
       feedExpenseRows,
       stockingExpenseRows,
+      salaryExpenseRows,
       outstandingRows,
     ] = await Promise.all([
       // Fish Sales Income
@@ -134,6 +134,13 @@ export const getDashboardOverview = async (req, res) => {
         FROM fish_stockings
       `),
 
+      // Staff Salary Expenses
+      db.execute(`
+        SELECT
+          COALESCE(SUM(salary_amount), 0) AS total_expenses
+        FROM staff_salary_records
+      `),
+
       // Outstanding Dealer Dues
       db.execute(`
         SELECT
@@ -174,11 +181,16 @@ export const getDashboardOverview = async (req, res) => {
       stockingExpenseRows[0][0].total_expenses || 0
     )
 
+    const salaryExpenses = Number(
+      salaryExpenseRows[0][0].total_expenses || 0
+    )
+
     const totalExpenses = Number(
       (
         manualExpenses +
         feedExpenses +
-        stockingExpenses
+        stockingExpenses +
+        salaryExpenses
       ).toFixed(2)
     )
 
@@ -338,6 +350,25 @@ export const getDashboardOverview = async (req, res) => {
         LEFT JOIN expense_categories ec
           ON e.category_id = ec.id
 
+        UNION ALL
+
+        -- Staff Salary
+        SELECT
+          ssr.id AS activity_id,
+          'Staff Salary' AS activity_type,
+          STR_TO_DATE(
+            CONCAT(ssr.salary_month, '-01'),
+            '%Y-%m-%d'
+          ) AS activity_date,
+          CONCAT(
+            COALESCE(s.name, 'Unknown Staff'),
+            ' - Monthly Salary'
+          ) AS description,
+          ssr.salary_amount AS amount
+        FROM staff_salary_records ssr
+        LEFT JOIN staff s
+          ON ssr.staff_id = s.id
+
       ) AS activities
 
       ORDER BY
@@ -386,6 +417,7 @@ export const getDashboardOverview = async (req, res) => {
           manual_expenses: manualExpenses,
           feed_expenses: feedExpenses,
           stocking_expenses: stockingExpenses,
+          staff_salary_expenses: salaryExpenses,
 
           net_profit: netResult > 0 ? netResult : 0,
           net_loss: netResult < 0 ? Math.abs(netResult) : 0,

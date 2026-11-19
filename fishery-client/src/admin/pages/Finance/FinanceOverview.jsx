@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react'
 import {
   Wallet,
@@ -13,28 +14,16 @@ import {
 } from 'lucide-react'
 import api from '../../../services/api'
 
-// ==========================================
-// HELPERS
-// ==========================================
-
 const formatCurrency = (amount) =>
   `৳ ${Number(amount || 0).toLocaleString('en-BD', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
 
-// ==========================================
-// COMPONENT
-// ==========================================
-
 function FinanceOverview() {
   const [finance, setFinance] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  // ==========================================
-  // FETCH FINANCE
-  // ==========================================
 
   const fetchFinance = async () => {
     try {
@@ -42,7 +31,6 @@ function FinanceOverview() {
       setError('')
 
       const response = await api.get('/finance/overview')
-
       setFinance(response.data.data)
     } catch (err) {
       setError(
@@ -58,14 +46,14 @@ function FinanceOverview() {
     fetchFinance()
   }, [])
 
-  // ==========================================
-  // SUMMARY CARDS
-  // ==========================================
+  const totalIncome = Number(finance?.total_income || 0)
+  const totalExpenses = Number(finance?.total_expenses || 0)
+  const netResult = totalIncome - totalExpenses
 
   const summaryCards = [
     {
       title: 'Total Income',
-      value: formatCurrency(finance?.total_income),
+      value: formatCurrency(totalIncome),
       description: 'Fish sales and lake income',
       icon: TrendingUp,
       color: 'text-emerald-600',
@@ -73,33 +61,29 @@ function FinanceOverview() {
     },
     {
       title: 'Total Expenses',
-      value: formatCurrency(finance?.total_expenses),
-      description: 'Total recorded expenses',
+      value: formatCurrency(totalExpenses),
+      description: 'Including feed, fish stocking, salary and other expenses',
       icon: TrendingDown,
       color: 'text-rose-600',
       bg: 'bg-rose-50',
     },
     {
-      title: 'Net Profit',
-      value: formatCurrency(finance?.net_profit),
-      description: 'Income minus expenses',
+      title: netResult >= 0 ? 'Net Profit' : 'Net Loss',
+      value: formatCurrency(Math.abs(netResult)),
+      description: 'Income minus total expenses',
       icon: ChartNoAxesCombined,
-      color: 'text-blue-600',
-      bg: 'bg-blue-50',
+      color: netResult >= 0 ? 'text-blue-600' : 'text-rose-600',
+      bg: netResult >= 0 ? 'bg-blue-50' : 'bg-rose-50',
     },
     {
-      title: 'Net Loss',
-      value: formatCurrency(finance?.net_loss),
-      description: 'Current financial loss',
+      title: 'Outstanding Due',
+      value: formatCurrency(finance?.outstanding_due),
+      description: 'Unpaid amount from dealers',
       icon: Wallet,
       color: 'text-amber-600',
       bg: 'bg-amber-50',
     },
   ]
-
-  // ==========================================
-  // INCOME BREAKDOWN
-  // ==========================================
 
   const incomeSources = [
     {
@@ -114,7 +98,7 @@ function FinanceOverview() {
     {
       title: 'Local Fishing Income',
       value: finance?.local_fishing_income,
-      description: 'Owner share (50%)',
+      description: "Owner's 50% share",
       icon: Waves,
       color: 'text-emerald-700',
       bg: 'bg-emerald-50',
@@ -131,13 +115,18 @@ function FinanceOverview() {
     },
   ]
 
-  // ==========================================
-  // UI
-  // ==========================================
+  const incomePercentage =
+    totalIncome + totalExpenses > 0
+      ? (totalIncome / (totalIncome + totalExpenses)) * 100
+      : 0
+
+  const expensePercentage =
+    totalIncome + totalExpenses > 0
+      ? (totalExpenses / (totalIncome + totalExpenses)) * 100
+      : 0
 
   return (
     <div className="space-y-6">
-
       {/* PAGE HEADING */}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -151,8 +140,7 @@ function FinanceOverview() {
           </h1>
 
           <p className="mt-1 text-sm text-gray-500">
-            Monitor your fishery income, expenses and overall financial
-            performance.
+            Monitor your fishery income, expenses and overall financial performance.
           </p>
         </div>
 
@@ -165,7 +153,6 @@ function FinanceOverview() {
             size={16}
             className={loading ? 'animate-spin' : ''}
           />
-
           Refresh
         </button>
       </div>
@@ -190,7 +177,6 @@ function FinanceOverview() {
 
       {finance && (
         <>
-
           {/* SUMMARY CARDS */}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -202,25 +188,25 @@ function FinanceOverview() {
                   key={card.title}
                   className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-500">
                         {card.title}
                       </p>
 
-                      <h2 className="mt-3 text-xl font-bold text-gray-800 sm:text-2xl">
+                      <h2 className="mt-3 break-words text-xl font-bold text-gray-800 sm:text-2xl">
                         {card.value}
                       </h2>
                     </div>
 
                     <div
-                      className={`flex h-12 w-12 items-center justify-center rounded-xl ${card.bg} ${card.color}`}
+                      className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${card.bg} ${card.color}`}
                     >
                       <Icon size={23} />
                     </div>
                   </div>
 
-                  <p className="mt-3 text-xs text-gray-400">
+                  <p className="mt-3 text-xs leading-5 text-gray-400">
                     {card.description}
                   </p>
                 </div>
@@ -231,7 +217,6 @@ function FinanceOverview() {
           {/* INCOME BREAKDOWN */}
 
           <div className="space-y-4">
-
             <div>
               <h2 className="text-lg font-bold text-[#123D35]">
                 Income Breakdown
@@ -251,21 +236,21 @@ function FinanceOverview() {
                     key={source.title}
                     className={`rounded-xl border ${source.border} bg-white p-5 shadow-sm`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-500">
                           {source.title}
                         </p>
 
                         <h2
-                          className={`mt-3 text-xl font-bold sm:text-2xl ${source.color}`}
+                          className={`mt-3 break-words text-xl font-bold sm:text-2xl ${source.color}`}
                         >
                           {formatCurrency(source.value)}
                         </h2>
                       </div>
 
                       <div
-                        className={`flex h-12 w-12 items-center justify-center rounded-xl ${source.bg} ${source.color}`}
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${source.bg} ${source.color}`}
                       >
                         <Icon size={23} />
                       </div>
@@ -278,13 +263,11 @@ function FinanceOverview() {
                 )
               })}
             </div>
-
           </div>
 
           {/* ADDITIONAL FINANCIAL CARDS */}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-
             {/* TOTAL SALES */}
 
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -301,32 +284,29 @@ function FinanceOverview() {
               </p>
             </div>
 
-            {/* OUTSTANDING DUE */}
+            {/* TOTAL EXPENSES */}
 
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <p className="text-sm font-medium text-gray-500">
-                Outstanding Due
+                Total Recorded Expenses
               </p>
 
-              <h2 className="mt-3 text-2xl font-bold text-amber-600">
-                {formatCurrency(finance.outstanding_due)}
+              <h2 className="mt-3 text-2xl font-bold text-rose-600">
+                {formatCurrency(totalExpenses)}
               </h2>
 
               <p className="mt-2 text-xs text-gray-400">
-                Unpaid amount from dealers
+                Manual expenses, feed, fish stocking and staff salary
               </p>
             </div>
-
           </div>
 
           {/* FINANCIAL ACTIVITY */}
 
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-
             {/* FINANCIAL PERFORMANCE */}
 
             <div className="rounded-xl border border-gray-200 bg-white p-5 xl:col-span-2">
-
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-[#123D35]">
@@ -345,35 +325,23 @@ function FinanceOverview() {
               </div>
 
               <div className="mt-6 space-y-5">
-
                 {/* INCOME */}
 
                 <div>
-                  <div className="mb-2 flex items-center justify-between">
+                  <div className="mb-2 flex items-center justify-between gap-3">
                     <span className="text-sm font-medium text-gray-600">
                       Total Income
                     </span>
 
                     <span className="text-sm font-semibold text-emerald-600">
-                      {formatCurrency(finance.total_income)}
+                      {formatCurrency(totalIncome)}
                     </span>
                   </div>
 
                   <div className="h-3 overflow-hidden rounded-full bg-gray-100">
                     <div
-                      className="h-full rounded-full bg-emerald-500"
-                      style={{
-                        width: `${
-                          finance.total_income +
-                            finance.total_expenses >
-                          0
-                            ? (finance.total_income /
-                                (finance.total_income +
-                                  finance.total_expenses)) *
-                              100
-                            : 0
-                        }%`,
-                      }}
+                      className="h-full rounded-full bg-emerald-500 transition-all"
+                      style={{ width: `${incomePercentage}%` }}
                     />
                   </div>
                 </div>
@@ -381,31 +349,20 @@ function FinanceOverview() {
                 {/* EXPENSES */}
 
                 <div>
-                  <div className="mb-2 flex items-center justify-between">
+                  <div className="mb-2 flex items-center justify-between gap-3">
                     <span className="text-sm font-medium text-gray-600">
                       Total Expenses
                     </span>
 
                     <span className="text-sm font-semibold text-rose-600">
-                      {formatCurrency(finance.total_expenses)}
+                      {formatCurrency(totalExpenses)}
                     </span>
                   </div>
 
                   <div className="h-3 overflow-hidden rounded-full bg-gray-100">
                     <div
-                      className="h-full rounded-full bg-rose-500"
-                      style={{
-                        width: `${
-                          finance.total_income +
-                            finance.total_expenses >
-                          0
-                            ? (finance.total_expenses /
-                                (finance.total_income +
-                                  finance.total_expenses)) *
-                              100
-                            : 0
-                        }%`,
-                      }}
+                      className="h-full rounded-full bg-rose-500 transition-all"
+                      style={{ width: `${expensePercentage}%` }}
                     />
                   </div>
                 </div>
@@ -419,30 +376,27 @@ function FinanceOverview() {
 
                   <p
                     className={`mt-2 text-xl font-bold ${
-                      Number(finance.net_loss || 0) > 0
-                        ? 'text-rose-600'
-                        : 'text-emerald-600'
+                      netResult >= 0
+                        ? 'text-emerald-600'
+                        : 'text-rose-600'
                     }`}
                   >
-                    {Number(finance.net_loss || 0) > 0
-                      ? `Loss: ${formatCurrency(finance.net_loss)}`
-                      : `Profit: ${formatCurrency(finance.net_profit)}`}
+                    {netResult >= 0
+                      ? `Profit: ${formatCurrency(netResult)}`
+                      : `Loss: ${formatCurrency(Math.abs(netResult))}`}
                   </p>
                 </div>
-
               </div>
             </div>
 
             {/* QUICK INFORMATION */}
 
             <div className="rounded-xl border border-gray-200 bg-white p-5">
-
               <h3 className="font-bold text-[#123D35]">
                 Finance Summary
               </h3>
 
               <div className="mt-5 space-y-4">
-
                 {/* INCOME SOURCES */}
 
                 <div className="flex items-center gap-3">
@@ -474,30 +428,27 @@ function FinanceOverview() {
                     </p>
 
                     <p className="text-xs text-gray-400">
-                      Recorded operating expenses
+                      Manual expenses, feed, stocking and salaries
                     </p>
                   </div>
                 </div>
-
               </div>
 
               {/* FINANCIAL NOTE */}
 
               <div className="mt-6 rounded-lg bg-[#F5F7F4] p-4">
                 <p className="text-xs leading-5 text-gray-500">
-                  Income includes fish sales, local fishing owner
+                  Income includes fish sales, local fishing owner's
                   share and rod fishing revenue. Local fishing
                   income includes only the owner's 50% share.
-                  Expenses are calculated from recorded expenses.
-                  Outstanding dealer payments are not counted
-                  as received income.
+                  Expenses include recorded manual expenses,
+                  feed purchases, fish stocking purchases and
+                  generated staff salary records. Outstanding
+                  dealer payments are not counted as received income.
                 </p>
               </div>
-
             </div>
-
           </div>
-
         </>
       )}
     </div>

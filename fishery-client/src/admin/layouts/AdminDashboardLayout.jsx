@@ -1,6 +1,12 @@
 
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import {
+  NavLink,
+  Link,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
 
 import {
   LayoutDashboard,
@@ -12,7 +18,6 @@ import {
   Wallet,
   LogOut,
   UserRound,
-  Truck,
   ShoppingBag,
   Utensils,
   Warehouse,
@@ -30,6 +35,10 @@ import {
 } from 'lucide-react'
 
 import { useAuth } from '../../context/AuthContext'
+
+// ==========================================
+// ADMIN NAVIGATION
+// ==========================================
 
 const navigation = [
   {
@@ -56,25 +65,51 @@ const navigation = [
     type: 'group',
     id: 'fish',
     children: [
-      { name: 'Fish Stock', path: '/dashboard/fish', icon: Fish },
-      { name: 'Fish Species', path: '/dashboard/fish-species', icon: Package },
-      { name: 'Fish Mortality', path: '/dashboard/fish-mortality', icon: Skull },
+      {
+        name: 'Fish Stock',
+        path: '/dashboard/fish',
+        icon: Fish,
+      },
+      {
+        name: 'Fish Species',
+        path: '/dashboard/fish-species',
+        icon: Package,
+      },
+      {
+        name: 'Fish Mortality',
+        path: '/dashboard/fish-mortality',
+        icon: Skull,
+      },
     ],
   },
-
   {
-  name: 'Feed Management',
-  icon: Package,
-  type: 'group',
-  id: 'feed',
-  children: [
-    { name: 'Feed Overview', path: '/dashboard/feed', icon: LayoutDashboard },
-    { name: 'Feed Purchases', path: '/dashboard/feed-purchases', icon: ShoppingBag },
-    { name: 'Daily Feeding', path: '/dashboard/daily-feeding', icon: Utensils },
-    { name: 'Feed Stock', path: '/dashboard/feed-stock', icon: Warehouse },
-  ],
-},
-
+    name: 'Feed Management',
+    icon: Package,
+    type: 'group',
+    id: 'feed',
+    children: [
+      {
+        name: 'Feed Overview',
+        path: '/dashboard/feed',
+        icon: LayoutDashboard,
+      },
+      {
+        name: 'Feed Purchases',
+        path: '/dashboard/feed-purchases',
+        icon: ShoppingBag,
+      },
+      {
+        name: 'Daily Feeding',
+        path: '/dashboard/daily-feeding',
+        icon: Utensils,
+      },
+      {
+        name: 'Feed Stock',
+        path: '/dashboard/feed-stock',
+        icon: Warehouse,
+      },
+    ],
+  },
   {
     name: 'Harvesting',
     path: '/dashboard/harvesting',
@@ -87,51 +122,56 @@ const navigation = [
     icon: Users,
     type: 'link',
   },
-
+  {
+    name: 'Staff Management',
+    path: '/dashboard/staff',
+    icon: Users,
+    type: 'link',
+  },
   {
     name: 'Sales Management',
     path: '/dashboard/fish-sales',
     icon: ShoppingCart,
     type: 'link',
   },
-
-
   {
-  name: 'Finance',
-  icon: Wallet,
-  type: 'group',
-  id: 'finance',
-  children: [
-    {
-      name: 'Finance Overview',
-      path: '/dashboard/finance',
-      icon: LayoutDashboard,
-    },
-    {
-      name: 'Income Management',
-      path: '/dashboard/income',
-      icon: TrendingUp,
-    },
-    {
-      name: 'Expense Management',
-      path: '/dashboard/expenses',
-      icon: TrendingDown,
-    },
-    {
-      name: 'Profit & Loss',
-      path: '/dashboard/profit-loss',
-      icon: ChartNoAxesCombined,
-    },
-    {
-      name: 'Financial Reports',
-      path: '/dashboard/financial-reports',
-      icon: FileBarChart,
-    },
-  ],
+    name: 'Finance',
+    icon: Wallet,
+    type: 'group',
+    id: 'finance',
+    children: [
+      {
+        name: 'Finance Overview',
+        path: '/dashboard/finance',
+        icon: LayoutDashboard,
+      },
+      {
+        name: 'Income Management',
+        path: '/dashboard/income',
+        icon: TrendingUp,
+      },
+      {
+        name: 'Expense Management',
+        path: '/dashboard/expenses',
+        icon: TrendingDown,
+      },
+      {
+        name: 'Profit & Loss',
+        path: '/dashboard/profit-loss',
+        icon: ChartNoAxesCombined,
+      },
+      {
+        name: 'Financial Reports',
+        path: '/dashboard/financial-reports',
+        icon: FileBarChart,
+      },
+    ],
   },
-
-
 ]
+
+// ==========================================
+// HELPER FUNCTIONS
+// ==========================================
 
 const getActiveGroup = (pathname) => {
   const activeGroup = navigation.find(
@@ -143,9 +183,14 @@ const getActiveGroup = (pathname) => {
   return activeGroup?.id || null
 }
 
+// ==========================================
+// DASHBOARD LAYOUT
+// ==========================================
+
 function DashboardLayout() {
   const navigate = useNavigate()
   const location = useLocation()
+
   const { user, logout } = useAuth()
 
   const [openGroup, setOpenGroup] = useState(() =>
@@ -196,12 +241,14 @@ function DashboardLayout() {
     }
   }, [])
 
+  // Sidebar group toggle
   const handleGroupToggle = (groupId) => {
     setOpenGroup((current) =>
       current === groupId ? null : groupId
     )
   }
 
+  // Admin logout
   const handleLogout = async () => {
     try {
       setLoggingOut(true)
@@ -213,34 +260,40 @@ function DashboardLayout() {
     }
   }
 
+  // Current page title
   const currentPage = navigation
     .flatMap((item) =>
       item.type === 'group' ? item.children : [item]
     )
     .find((item) => item.path === location.pathname)
 
-  const pageTitle = currentPage?.name || 'Management Dashboard'
+  const pageTitle =
+    location.pathname === '/dashboard/profile'
+      ? 'My Profile'
+      : currentPage?.name || 'Management Dashboard'
 
-  // Reusable Sidebar Content
+  // ==========================================
+  // REUSABLE SIDEBAR CONTENT
+  // ==========================================
+
   const renderSidebarContent = () => (
     <>
       {/* Brand */}
-      <Link to="/" >
+      <Link to="/">
         <div className="flex h-[82px] shrink-0 items-center gap-3 border-b border-white/[0.08] px-6">
-          
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#80D5B2] text-[#123D35]">
-              <Fish size={25} strokeWidth={2.3} />
-            </div>
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#80D5B2] text-[#123D35]">
+            <Fish size={25} strokeWidth={2.3} />
+          </div>
 
-            <div>
-              <h1 className="text-xl font-extrabold tracking-tight text-white">
-                Fishery<span className="text-[#80D5B2]">.</span>
-              </h1>
-              <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[2px] text-emerald-100/50">
-                Management System
-              </p>
-            </div>
-          
+          <div>
+            <h1 className="text-xl font-extrabold tracking-tight text-white">
+              Fishery<span className="text-[#80D5B2]">.</span>
+            </h1>
+
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[2px] text-emerald-100/50">
+              Management System
+            </p>
+          </div>
         </div>
       </Link>
 
@@ -357,6 +410,10 @@ function DashboardLayout() {
     </>
   )
 
+  // ==========================================
+  // MAIN RENDER
+  // ==========================================
+
   return (
     <div className="min-h-screen bg-[#F5F7F4] text-gray-800">
 
@@ -401,7 +458,6 @@ function DashboardLayout() {
 
             {/* Header Left */}
             <div className="flex min-w-0 items-center gap-3">
-
               <button
                 onClick={() => setMobileSidebarOpen(true)}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-[#123D35] transition hover:bg-[#E8F3ED] md:hidden"
@@ -429,6 +485,7 @@ function DashboardLayout() {
             {/* Header Right */}
             <div className="flex shrink-0 items-center gap-3 sm:gap-5">
 
+              {/* System Status */}
               <div className="hidden items-center gap-2 rounded-full border border-emerald-100 bg-[#E8F3ED] px-3.5 py-2 lg:flex">
                 <span className="h-2 w-2 rounded-full bg-[#159B60]" />
                 <span className="text-[11px] font-semibold text-[#123D35]">
@@ -437,10 +494,15 @@ function DashboardLayout() {
               </div>
 
               {/* Profile Dropdown */}
-              <div className="relative border-l border-gray-200 pl-3 sm:pl-5" ref={profileRef}>
+              <div
+                className="relative border-l border-gray-200 pl-3 sm:pl-5"
+                ref={profileRef}
+              >
                 <button
                   type="button"
-                  onClick={() => setProfileOpen((current) => !current)}
+                  onClick={() =>
+                    setProfileOpen((current) => !current)
+                  }
                   aria-expanded={profileOpen}
                   className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition hover:bg-gray-50"
                 >
@@ -452,6 +514,7 @@ function DashboardLayout() {
                     <p className="max-w-[130px] truncate text-xs font-bold text-gray-800">
                       {user?.name || 'Admin'}
                     </p>
+
                     <p className="mt-0.5 text-[10px] capitalize text-gray-400">
                       {user?.role || 'Administrator'}
                     </p>
@@ -465,6 +528,7 @@ function DashboardLayout() {
                   />
                 </button>
 
+                {/* Dropdown Menu */}
                 {profileOpen && (
                   <div className="absolute right-0 top-full z-50 mt-3 w-[260px] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl shadow-gray-900/10">
 
@@ -479,6 +543,7 @@ function DashboardLayout() {
                           <p className="truncate text-sm font-bold text-gray-800">
                             {user?.name || 'Admin'}
                           </p>
+
                           <p className="mt-0.5 truncate text-xs text-gray-500">
                             {user?.email || 'Administrator'}
                           </p>
@@ -487,6 +552,7 @@ function DashboardLayout() {
 
                       <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#E8F3ED] px-2.5 py-1">
                         <span className="h-1.5 w-1.5 rounded-full bg-[#159B60]" />
+
                         <span className="text-[10px] font-semibold capitalize text-[#123D35]">
                           {user?.role || 'Administrator'}
                         </span>
@@ -495,11 +561,24 @@ function DashboardLayout() {
 
                     {/* Dropdown Actions */}
                     <div className="p-2">
+
+                      {/* Signed in account */}
                       <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs text-gray-500">
                         <CircleUserRound size={17} />
                         <span>Signed in account</span>
                       </div>
 
+                      {/* My Profile */}
+                      <Link
+                        to="/dashboard/profile"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-[#E8F3ED] hover:text-[#123D35]"
+                      >
+                        <Settings size={17} />
+                        My Profile
+                      </Link>
+
+                      {/* Sign Out */}
                       <button
                         type="button"
                         onClick={handleLogout}
@@ -507,7 +586,9 @@ function DashboardLayout() {
                         className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                       >
                         <LogOut size={17} />
-                        {loggingOut ? 'Signing out...' : 'Sign Out'}
+                        {loggingOut
+                          ? 'Signing out...'
+                          : 'Sign Out'}
                       </button>
                     </div>
                   </div>
@@ -531,7 +612,6 @@ function DashboardLayout() {
             </span>
           </p>
         </footer>
-
       </div>
     </div>
   )

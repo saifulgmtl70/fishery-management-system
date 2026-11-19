@@ -18,7 +18,7 @@ import { toast } from 'sonner'
 import api from '../../../services/api'
 
 const formatMoney = (amount) =>
-  `৳${Number(amount || 0).toLocaleString('en-BD', {
+  `৳ ${Number(amount || 0).toLocaleString('en-BD', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
@@ -44,11 +44,7 @@ const formatMonth = (month) =>
 
 const getToday = () => {
   const date = new Date()
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-
-  return `${year}-${month}-${day}`
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 const FinancialReports = () => {
@@ -67,13 +63,8 @@ const FinancialReports = () => {
 
       const params = {}
 
-      if (filters.start_date) {
-        params.start_date = filters.start_date
-      }
-
-      if (filters.end_date) {
-        params.end_date = filters.end_date
-      }
+      if (filters.start_date) params.start_date = filters.start_date
+      if (filters.end_date) params.end_date = filters.end_date
 
       const response = await api.get('/finance/reports', { params })
 
@@ -113,9 +104,7 @@ const FinancialReports = () => {
     fetchReport()
   }
 
-  // ==========================================
   // DAILY REPORTS
-  // ==========================================
 
   const dailyReports = useMemo(() => {
     const reportMap = new Map()
@@ -146,7 +135,6 @@ const FinancialReports = () => {
       }
 
       existing.expenses = Number(item.total_expenses || 0)
-
       reportMap.set(date, existing)
     })
 
@@ -158,37 +146,34 @@ const FinancialReports = () => {
       .sort((a, b) => b.date.localeCompare(a.date))
   }, [report])
 
-  // ==========================================
   // TOTALS
-  // ==========================================
 
-  const totals = useMemo(() => {
-    return dailyReports.reduce(
-      (result, item) => ({
-        fishSales: result.fishSales + item.fishSales,
-        localFishing: result.localFishing + item.localFishing,
-        rodFishing: result.rodFishing + item.rodFishing,
-        income: result.income + item.income,
-        expenses: result.expenses + item.expenses,
-      }),
-      {
-        fishSales: 0,
-        localFishing: 0,
-        rodFishing: 0,
-        income: 0,
-        expenses: 0,
-      }
-    )
-  }, [dailyReports])
+  const totals = useMemo(
+    () =>
+      dailyReports.reduce(
+        (result, item) => ({
+          fishSales: result.fishSales + item.fishSales,
+          localFishing: result.localFishing + item.localFishing,
+          rodFishing: result.rodFishing + item.rodFishing,
+          income: result.income + item.income,
+          expenses: result.expenses + item.expenses,
+        }),
+        {
+          fishSales: 0,
+          localFishing: 0,
+          rodFishing: 0,
+          income: 0,
+          expenses: 0,
+        }
+      ),
+    [dailyReports]
+  )
 
   const totalIncome = totals.income
   const totalExpenses = totals.expenses
   const netResult = totalIncome - totalExpenses
-  const totalTransactions = dailyReports.length
 
-  // ==========================================
   // MONTHLY REPORTS
-  // ==========================================
 
   const monthlyReports = useMemo(() => {
     const monthMap = new Map()
@@ -222,9 +207,7 @@ const FinancialReports = () => {
       .sort((a, b) => b.month.localeCompare(a.month))
   }, [dailyReports])
 
-  // ==========================================
   // SUMMARY CARDS
-  // ==========================================
 
   const cards = [
     {
@@ -253,7 +236,7 @@ const FinancialReports = () => {
     },
     {
       title: 'Report Days',
-      value: totalTransactions,
+      value: dailyReports.length,
       icon: CalendarDays,
       color: 'text-blue-600',
       bg: 'bg-blue-50',
@@ -289,13 +272,22 @@ const FinancialReports = () => {
     },
   ]
 
-  const handlePrint = () => {
-    window.print()
-  }
+  const handlePrint = () => window.print()
+
+  const incomePercentage =
+    totalIncome + totalExpenses > 0
+      ? (totalIncome / (totalIncome + totalExpenses)) * 100
+      : 0
+
+  const expensePercentage =
+    totalIncome + totalExpenses > 0
+      ? (totalExpenses / (totalIncome + totalExpenses)) * 100
+      : 0
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* HEADER */}
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
         <div>
           <p className="text-sm text-gray-500">
@@ -322,12 +314,7 @@ const FinancialReports = () => {
           </button>
 
           <button
-            onClick={() =>
-              fetchReport({
-                start_date: startDate,
-                end_date: endDate,
-              })
-            }
+            onClick={() => fetchReport({ start_date: startDate, end_date: endDate })}
             disabled={loading}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
           >
@@ -340,7 +327,8 @@ const FinancialReports = () => {
         </div>
       </div>
 
-      {/* Date Filter */}
+      {/* DATE FILTER */}
+
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm print:hidden">
         <div className="mb-4 flex items-center gap-2">
           <CalendarDays size={18} className="text-emerald-600" />
@@ -391,7 +379,8 @@ const FinancialReports = () => {
 
             <button
               onClick={handleReset}
-              className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+              disabled={loading}
+              className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
             >
               Reset
             </button>
@@ -399,7 +388,8 @@ const FinancialReports = () => {
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* SUMMARY CARDS */}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 print:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon
@@ -431,7 +421,8 @@ const FinancialReports = () => {
         })}
       </div>
 
-      {/* Income Breakdown */}
+      {/* INCOME BREAKDOWN */}
+
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="mb-5">
           <h2 className="text-lg font-bold text-gray-800">
@@ -491,7 +482,8 @@ const FinancialReports = () => {
         </div>
       </div>
 
-      {/* Financial Summary */}
+      {/* FINANCIAL SUMMARY */}
+
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="flex items-center gap-2">
           <BarChart3 size={20} className="text-emerald-600" />
@@ -511,6 +503,8 @@ const FinancialReports = () => {
           </div>
         ) : (
           <div className="mt-6 space-y-5">
+            {/* INCOME */}
+
             <div>
               <div className="mb-2 flex items-center justify-between gap-3">
                 <span className="text-sm font-medium text-gray-700">
@@ -524,17 +518,13 @@ const FinancialReports = () => {
 
               <div className="h-3 overflow-hidden rounded-full bg-gray-100">
                 <div
-                  className="h-full rounded-full bg-emerald-500 transition-all"
-                  style={{
-                    width: `${
-                      totalIncome + totalExpenses > 0
-                        ? (totalIncome / (totalIncome + totalExpenses)) * 100
-                        : 0
-                    }%`,
-                  }}
+                  className="h-full rounded-full bg-emerald-500"
+                  style={{ width: `${incomePercentage}%` }}
                 />
               </div>
             </div>
+
+            {/* EXPENSES */}
 
             <div>
               <div className="mb-2 flex items-center justify-between gap-3">
@@ -549,17 +539,13 @@ const FinancialReports = () => {
 
               <div className="h-3 overflow-hidden rounded-full bg-gray-100">
                 <div
-                  className="h-full rounded-full bg-orange-500 transition-all"
-                  style={{
-                    width: `${
-                      totalIncome + totalExpenses > 0
-                        ? (totalExpenses / (totalIncome + totalExpenses)) * 100
-                        : 0
-                    }%`,
-                  }}
+                  className="h-full rounded-full bg-orange-500"
+                  style={{ width: `${expensePercentage}%` }}
                 />
               </div>
             </div>
+
+            {/* NET RESULT */}
 
             <div className="mt-6 border-t border-gray-100 pt-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -588,7 +574,8 @@ const FinancialReports = () => {
         )}
       </div>
 
-      {/* Monthly Report */}
+      {/* MONTHLY REPORT */}
+
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="mb-5 flex items-center gap-2">
           <CalendarDays size={20} className="text-emerald-600" />
@@ -630,9 +617,17 @@ const FinancialReports = () => {
                       {formatMonth(item.month)}
                     </td>
 
-                    <td className="px-4 py-3 text-right">{formatMoney(item.fishSales)}</td>
-                    <td className="px-4 py-3 text-right">{formatMoney(item.localFishing)}</td>
-                    <td className="px-4 py-3 text-right">{formatMoney(item.rodFishing)}</td>
+                    <td className="px-4 py-3 text-right">
+                      {formatMoney(item.fishSales)}
+                    </td>
+
+                    <td className="px-4 py-3 text-right">
+                      {formatMoney(item.localFishing)}
+                    </td>
+
+                    <td className="px-4 py-3 text-right">
+                      {formatMoney(item.rodFishing)}
+                    </td>
 
                     <td className="px-4 py-3 text-right font-semibold text-emerald-600">
                       {formatMoney(item.income)}
@@ -666,7 +661,8 @@ const FinancialReports = () => {
         )}
       </div>
 
-      {/* Daily Report */}
+      {/* DAILY REPORT */}
+
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="mb-5">
           <h2 className="text-lg font-bold text-gray-800">
@@ -674,7 +670,8 @@ const FinancialReports = () => {
           </h2>
 
           <p className="mt-1 text-sm text-gray-500">
-            Daily income and expenses from all recorded transactions
+            Daily income and expenses from all recorded transactions,
+            including salary expense records.
           </p>
         </div>
 
@@ -705,9 +702,17 @@ const FinancialReports = () => {
                       {formatDate(item.date)}
                     </td>
 
-                    <td className="px-4 py-3 text-right">{formatMoney(item.fishSales)}</td>
-                    <td className="px-4 py-3 text-right">{formatMoney(item.localFishing)}</td>
-                    <td className="px-4 py-3 text-right">{formatMoney(item.rodFishing)}</td>
+                    <td className="px-4 py-3 text-right">
+                      {formatMoney(item.fishSales)}
+                    </td>
+
+                    <td className="px-4 py-3 text-right">
+                      {formatMoney(item.localFishing)}
+                    </td>
+
+                    <td className="px-4 py-3 text-right">
+                      {formatMoney(item.rodFishing)}
+                    </td>
 
                     <td className="px-4 py-3 text-right font-semibold text-emerald-600">
                       {formatMoney(item.income)}
@@ -751,9 +756,17 @@ const FinancialReports = () => {
                 <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold">
                   <td className="px-4 py-4 text-gray-800">Total</td>
 
-                  <td className="px-4 py-4 text-right">{formatMoney(totals.fishSales)}</td>
-                  <td className="px-4 py-4 text-right">{formatMoney(totals.localFishing)}</td>
-                  <td className="px-4 py-4 text-right">{formatMoney(totals.rodFishing)}</td>
+                  <td className="px-4 py-4 text-right">
+                    {formatMoney(totals.fishSales)}
+                  </td>
+
+                  <td className="px-4 py-4 text-right">
+                    {formatMoney(totals.localFishing)}
+                  </td>
+
+                  <td className="px-4 py-4 text-right">
+                    {formatMoney(totals.rodFishing)}
+                  </td>
 
                   <td className="px-4 py-4 text-right text-emerald-700">
                     {formatMoney(totalIncome)}
@@ -794,7 +807,20 @@ const FinancialReports = () => {
         )}
       </div>
 
-      {/* Print Footer */}
+      {/* REPORT NOTE */}
+
+      <div className="rounded-xl border border-gray-100 bg-white p-4 print:hidden">
+        <p className="text-xs leading-5 text-gray-500">
+          Report expenses are based on the backend financial report
+          aggregation. Staff salaries, feed purchases, fish stocking
+          purchases and manual expenses must be included in that
+          aggregation to appear in these reports. Salary is not added
+          separately in this page to prevent duplicate calculation.
+        </p>
+      </div>
+
+      {/* PRINT FOOTER */}
+
       <div className="hidden print:block border-t border-gray-200 pt-4 text-center text-xs text-gray-500">
         <p>Fishery Management System</p>
         <p>Financial Report generated on {formatDate(getToday())}</p>

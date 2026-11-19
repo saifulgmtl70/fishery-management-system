@@ -48,6 +48,9 @@ import GuestRoute from './GuestRoute'
 import FinancialReports from '../admin/pages/Finance/FinancialReports'
 import LakeManagement from '../admin/pages/Lake/LakeManagement'
 
+import StaffManagement from '../admin/pages/Staff/StaffManagement'
+
+import Profile from '../admin/pages/Profile/Profile'
 
 
 function AppRoutes() {
@@ -76,6 +79,8 @@ function AppRoutes() {
 
           <Route index element={<DashboardHome />} />
 
+          
+
           {/* Pond Management */}
           <Route path="ponds" element={<PondManagement />} />
 
@@ -99,6 +104,8 @@ function AppRoutes() {
           {/* Dealer Management */}
 
           <Route path="dealers" element={<DealerManagement />} />
+
+          <Route path="staff" element={<StaffManagement />} />
           {/* Sales Management */}
           <Route path="fish-sales" element={<FishSaleManagement />} />
 
@@ -108,6 +115,8 @@ function AppRoutes() {
           <Route path="expenses" element={<ExpenseManagement />} />
           <Route path="profit-loss" element={<ProfitLoss />} />
           <Route path="financial-reports" element={<FinancialReports />} />
+
+          <Route path="profile" element={<Profile />} />
 
         </Route>
       </Route>

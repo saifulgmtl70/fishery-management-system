@@ -29,6 +29,12 @@ import financeRoutes from './routes/financeRoutes.js'
 import lakeRoutes from './routes/lakeRoutes.js'
 
 import dashboardRoutes from './routes/dashboardRoutes.js'
+
+
+import staffRoutes from './routes/staffRoutes.js'
+
+
+
 const app = express()
 
 // ==========================================
@@ -92,6 +98,10 @@ app.use('/feed-stock', feedStockRoutes)
 // ==========================================
 
 app.use('/dealers', dealerRoutes)
+
+
+app.use('/staff', staffRoutes)
+
 
 
 // ==========================================

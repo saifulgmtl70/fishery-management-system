@@ -1,5 +1,12 @@
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react'
+
 import api from '../services/api'
 
 const AuthContext = createContext(null)
@@ -8,8 +15,11 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Check existing admin session
-  const checkAuth = async () => {
+  // ==========================================
+  // CHECK EXISTING ADMIN SESSION
+  // ==========================================
+
+  const checkAuth = useCallback(async () => {
     try {
       const response = await api.get('/auth/me')
 
@@ -18,21 +28,32 @@ export function AuthProvider({ children }) {
         response.data.user?.role === 'admin'
       ) {
         setUser(response.data.user)
-      } else {
-        setUser(null)
+        return response.data.user
       }
-    } catch (error) {
+
       setUser(null)
+      return null
+    } catch (error) {
+      console.error('Authentication Check Error:', error)
+      setUser(null)
+      return null
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  // ==========================================
+  // INITIAL AUTHENTICATION
+  // ==========================================
 
   useEffect(() => {
     checkAuth()
-  }, [])
+  }, [checkAuth])
 
-  // Admin Login
+  // ==========================================
+  // ADMIN LOGIN
+  // ==========================================
+
   const login = async (credentials) => {
     const response = await api.post('/auth/login', credentials)
 
@@ -49,7 +70,10 @@ export function AuthProvider({ children }) {
     return response.data
   }
 
-  // Admin Logout
+  // ==========================================
+  // ADMIN LOGOUT
+  // ==========================================
+
   const logout = async () => {
     try {
       await api.post('/auth/logout')
@@ -58,15 +82,28 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Update current user information
+  // ==========================================
+  // UPDATE CURRENT USER
+  // ==========================================
+
   const updateUser = (updatedUser) => {
-    setUser(updatedUser)
+    setUser((previousUser) => ({
+      ...previousUser,
+      ...updatedUser,
+    }))
   }
 
-  // Clear current user session
+  // ==========================================
+  // CLEAR USER SESSION
+  // ==========================================
+
   const clearUser = () => {
     setUser(null)
   }
+
+  // ==========================================
+  // CONTEXT VALUE
+  // ==========================================
 
   const value = {
     user,
@@ -86,7 +123,10 @@ export function AuthProvider({ children }) {
   )
 }
 
-// Custom Hook
+// ==========================================
+// CUSTOM AUTH HOOK
+// ==========================================
+
 export function useAuth() {
   const context = useContext(AuthContext)
 

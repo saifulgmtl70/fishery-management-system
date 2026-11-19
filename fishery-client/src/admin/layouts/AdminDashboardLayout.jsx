@@ -35,6 +35,36 @@ import {
 } from 'lucide-react'
 
 import { useAuth } from '../../context/AuthContext'
+console.log('DashboardLayout File Loaded Successfully')
+
+// ==========================================
+// ADMIN PROFILE AVATAR
+// ==========================================
+
+function ProfileAvatar({ src, size = 'h-9 w-9', iconSize = 19 }) {
+  const [imageError, setImageError] = useState(false)
+
+  useEffect(() => {
+    setImageError(false)
+  }, [src])
+
+  return (
+    <div
+      className={`flex ${size} shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#123D35] text-[#80D5B2]`}
+    >
+      {src && !imageError ? (
+        <img
+          src={src}
+          alt="Admin Profile"
+          className="h-full w-full object-cover"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <UserRound size={iconSize} />
+      )}
+    </div>
+  )
+}
 
 // ==========================================
 // ADMIN NAVIGATION
@@ -192,6 +222,8 @@ function DashboardLayout() {
   const location = useLocation()
 
   const { user, logout } = useAuth()
+  console.log('Navbar User:', user)
+console.log('Navbar Profile Image:', user?.profile_image)
 
   const [openGroup, setOpenGroup] = useState(() =>
     getActiveGroup(location.pathname)
@@ -506,9 +538,12 @@ function DashboardLayout() {
                   aria-expanded={profileOpen}
                   className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition hover:bg-gray-50"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#123D35] text-[#80D5B2]">
-                    <UserRound size={19} />
-                  </div>
+                  {/* Navbar Profile Image */}
+                  <ProfileAvatar
+                    src={user?.profile_image}
+                    size="h-9 w-9"
+                    iconSize={19}
+                  />
 
                   <div className="hidden min-w-0 text-left sm:block">
                     <p className="max-w-[130px] truncate text-xs font-bold text-gray-800">
@@ -535,9 +570,13 @@ function DashboardLayout() {
                     {/* Profile Details */}
                     <div className="border-b border-gray-100 bg-[#F8FAF8] p-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#123D35] text-[#80D5B2]">
-                          <UserRound size={22} />
-                        </div>
+
+                        {/* Dropdown Profile Image */}
+                        <ProfileAvatar
+                          src={user?.profile_image}
+                          size="h-11 w-11"
+                          iconSize={22}
+                        />
 
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold text-gray-800">

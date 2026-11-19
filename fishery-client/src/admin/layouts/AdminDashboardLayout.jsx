@@ -45,6 +45,12 @@ const navigation = [
     type: 'link',
   },
   {
+    name: 'Lake Management',
+    path: '/dashboard/lake',
+    icon: Waves,
+    type: 'link',
+  },
+  {
     name: 'Fish Management',
     icon: Fish,
     type: 'group',
@@ -55,20 +61,20 @@ const navigation = [
       { name: 'Fish Mortality', path: '/dashboard/fish-mortality', icon: Skull },
     ],
   },
+
   {
-    name: 'Feed Management',
-    icon: Package,
-    type: 'group',
-    id: 'feed',
-    children: [
-      { name: 'Feed Overview', path: '/dashboard/feed', icon: LayoutDashboard },
-      { name: 'Feed Types', path: '/dashboard/feed-types', icon: Package },
-      { name: 'Feed Suppliers', path: '/dashboard/feed-suppliers', icon: Truck },
-      { name: 'Feed Purchases', path: '/dashboard/feed-purchases', icon: ShoppingBag },
-      { name: 'Daily Feeding', path: '/dashboard/daily-feeding', icon: Utensils },
-      { name: 'Feed Stock', path: '/dashboard/feed-stock', icon: Warehouse },
-    ],
-  },
+  name: 'Feed Management',
+  icon: Package,
+  type: 'group',
+  id: 'feed',
+  children: [
+    { name: 'Feed Overview', path: '/dashboard/feed', icon: LayoutDashboard },
+    { name: 'Feed Purchases', path: '/dashboard/feed-purchases', icon: ShoppingBag },
+    { name: 'Daily Feeding', path: '/dashboard/daily-feeding', icon: Utensils },
+    { name: 'Feed Stock', path: '/dashboard/feed-stock', icon: Warehouse },
+  ],
+},
+
   {
     name: 'Harvesting',
     path: '/dashboard/harvesting',

@@ -18,13 +18,17 @@ import dailyFeedingRoutes from './routes/dailyFeedingRoutes.js'
 import feedStockRoutes from './routes/feedStockRoutes.js'
 
 import fishMortalityRoutes from './routes/fishMortalityRoutes.js'
-import fishHarvestRoutes from './routes/fishHarvestRoutes.js'
 import fishSaleRoutes from './routes/fishSaleRoutes.js'
 
 import dealerRoutes from './routes/dealerRoutes.js'
 
 import expenseRoutes from './routes/expenseRoutes.js'
 
+import financeRoutes from './routes/financeRoutes.js'
+
+import lakeRoutes from './routes/lakeRoutes.js'
+
+import dashboardRoutes from './routes/dashboardRoutes.js'
 const app = express()
 
 // ==========================================
@@ -54,6 +58,8 @@ app.use('/password-reset', passwordResetRoutes)
 
 app.use('/ponds', pondRoutes)
 
+app.use('/lake', lakeRoutes)
+
 // ==========================================
 // FISH MANAGEMENT ROUTES
 // ==========================================
@@ -64,7 +70,6 @@ app.use('/fish-stockings', fishStockingRoutes)
 
 app.use('/fish-mortalities', fishMortalityRoutes)
 
-app.use('/fish-harvests', fishHarvestRoutes)
 
 app.use('/fish-sales', fishSaleRoutes)
 
@@ -88,11 +93,17 @@ app.use('/feed-stock', feedStockRoutes)
 
 app.use('/dealers', dealerRoutes)
 
+
 // ==========================================
 // EXPENSE MANAGEMENT ROUTES
 // ==========================================
 
 app.use('/expenses', expenseRoutes)
+
+app.use('/finance', financeRoutes)
+
+
+app.use('/dashboard', dashboardRoutes)
 
 // ==========================================
 // ROOT ROUTE

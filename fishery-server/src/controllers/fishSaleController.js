@@ -1,4 +1,3 @@
-
 import { randomUUID } from 'crypto'
 import { z } from 'zod'
 
@@ -23,7 +22,12 @@ const saleSchema = z.object({
     z.coerce.number().min(0)
   ),
 
-  payment_method: z.enum([ 'cash', 'bank', 'mobile_banking', 'other', ]).default('cash'),
+  payment_method: z.enum([
+    'cash',
+    'bank',
+    'mobile_banking',
+    'other',
+  ]).default('cash'),
 
   notes: z.preprocess(
     (value) =>
@@ -57,7 +61,12 @@ const paymentSchema = z.object({
 
   amount: z.coerce.number().positive(),
 
-  payment_method: z.enum([ 'cash', 'bank', 'mobile_banking', 'other']).default('cash'),
+  payment_method: z.enum([
+    'cash',
+    'bank',
+    'mobile_banking',
+    'other',
+  ]).default('cash'),
 
   reference_number: z.preprocess(
     (value) =>
@@ -109,7 +118,20 @@ const isValidDate = (date) => {
 export const getAllFishSales = async (req, res) => {
   try {
     const [sales] = await db.execute(`
-      SELECT fs.id, fs.invoice_number, fs.dealer_id, d.dealer_name, fs.pond_id, p.pond_name, fs.sale_date, fs.total_amount, fs.paid_amount, fs.due_amount, fs.payment_status, fs.notes, fs.created_at
+      SELECT
+        fs.id,
+        fs.invoice_number,
+        fs.dealer_id,
+        d.dealer_name,
+        fs.pond_id,
+        p.pond_name,
+        fs.sale_date,
+        fs.total_amount,
+        fs.paid_amount,
+        fs.due_amount,
+        fs.payment_status,
+        fs.notes,
+        fs.created_at
       FROM fish_sales fs
       INNER JOIN dealers d
         ON fs.dealer_id = d.id
@@ -119,7 +141,16 @@ export const getAllFishSales = async (req, res) => {
     `)
 
     const [items] = await db.execute(`
-      SELECT fsi.id, fsi.sale_id, fsi.species_id, sp.species_name, fsi.harvest_id, fsi.quantity_kg, fsi.unit_price_per_kg, fsi.subtotal, fsi.notes
+      SELECT
+        fsi.id,
+        fsi.sale_id,
+        fsi.species_id,
+        sp.species_name,
+        fsi.harvest_id,
+        fsi.quantity_kg,
+        fsi.unit_price_per_kg,
+        fsi.subtotal,
+        fsi.notes
       FROM fish_sale_items fsi
       LEFT JOIN fish_species sp
         ON fsi.species_id = sp.id
@@ -127,7 +158,15 @@ export const getAllFishSales = async (req, res) => {
     `)
 
     const [payments] = await db.execute(`
-      SELECT id, sale_id, payment_date, amount, payment_method, reference_number, notes, created_at
+      SELECT
+        id,
+        sale_id,
+        payment_date,
+        amount,
+        payment_method,
+        reference_number,
+        notes,
+        created_at
       FROM fish_sale_payments
       ORDER BY payment_date ASC, id ASC
     `)
@@ -162,8 +201,7 @@ export const getAllFishSales = async (req, res) => {
       total: salesWithDetails.length,
       sales: salesWithDetails,
     })
-
-  } 
+  }
   catch (error) {
     console.error('Get Fish Sales Error:', error)
 
@@ -189,7 +227,15 @@ export const createFishSale = async (req, res) => {
     })
   }
 
-  const { dealer_id, pond_id, sale_date, paid_amount, payment_method, notes, items } = parsed.data
+  const {
+    dealer_id,
+    pond_id,
+    sale_date,
+    paid_amount,
+    payment_method,
+    notes,
+    items,
+  } = parsed.data
 
   // Validate sale date
   if (!isValidDate(sale_date)) {
@@ -225,7 +271,10 @@ export const createFishSale = async (req, res) => {
     await connection.beginTransaction()
     transactionStarted = true
 
-    // Check dealer
+    // ==========================================
+    // CHECK DEALER
+    // ==========================================
+
     const [dealers] = await connection.execute(
       `SELECT id, dealer_name, status
        FROM dealers
@@ -254,11 +303,15 @@ export const createFishSale = async (req, res) => {
       })
     }
 
-    // Check pond
+    // ==========================================
+    // CHECK AND LOCK POND
+    // ==========================================
+
     const [ponds] = await connection.execute(
       `SELECT id, pond_name
        FROM ponds
-       WHERE id = ?`,
+       WHERE id = ?
+       FOR UPDATE`,
       [pond_id]
     )
 
@@ -272,11 +325,15 @@ export const createFishSale = async (req, res) => {
       })
     }
 
-    // Check fish species and calculate sale amount
+    // ==========================================
+    // CHECK FISH SPECIES, STOCK AND SALE AMOUNT
+    // ==========================================
+
     const validatedItems = []
     let totalAmount = 0
 
     for (const item of items) {
+      // Check species
       const [species] = await connection.execute(
         `SELECT id, species_name, status
          FROM fish_species
@@ -304,6 +361,84 @@ export const createFishSale = async (req, res) => {
         })
       }
 
+      // ==========================================
+      // CHECK AVAILABLE FISH STOCK
+      // ==========================================
+
+      const [stockRows] = await connection.execute(
+        `SELECT
+          COALESCE((
+            SELECT SUM(fs.total_weight_kg)
+            FROM fish_stockings fs
+            WHERE fs.pond_id = ?
+              AND fs.species_id = ?
+          ), 0) AS total_stocked,
+
+          COALESCE((
+            SELECT SUM(fm.total_weight_kg)
+            FROM fish_mortalities fm
+            INNER JOIN fish_stockings fs
+              ON fm.stocking_id = fs.id
+            WHERE fs.pond_id = ?
+              AND fs.species_id = ?
+          ), 0) AS total_mortality,
+
+          COALESCE((
+            SELECT SUM(fsi.quantity_kg)
+            FROM fish_sale_items fsi
+            INNER JOIN fish_sales fss
+              ON fsi.sale_id = fss.id
+            WHERE fss.pond_id = ?
+              AND fsi.species_id = ?
+          ), 0) AS total_sold`,
+        [
+          pond_id,
+          item.species_id,
+          pond_id,
+          item.species_id,
+          pond_id,
+          item.species_id,
+        ]
+      )
+
+      const totalStocked = Number(
+        stockRows[0].total_stocked
+      )
+
+      const totalMortality = Number(
+        stockRows[0].total_mortality
+      )
+
+      const totalSold = Number(
+        stockRows[0].total_sold
+      )
+
+      const availableStock = Number(
+        (totalStocked - totalMortality - totalSold).toFixed(3)
+      )
+
+      // Prevent selling more fish than available stock
+      if (item.quantity_kg > availableStock) {
+        await connection.rollback()
+        transactionStarted = false
+
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient fish stock for ${species[0].species_name}.`,
+          stock_details: {
+            total_stocked_kg: totalStocked,
+            total_mortality_kg: totalMortality,
+            total_sold_kg: totalSold,
+            available_stock_kg: availableStock,
+            requested_quantity_kg: item.quantity_kg,
+          },
+        })
+      }
+
+      // ==========================================
+      // CALCULATE SUBTOTAL
+      // ==========================================
+
       const subtotal = Number(
         (item.quantity_kg * item.unit_price_per_kg).toFixed(2)
       )
@@ -318,7 +453,10 @@ export const createFishSale = async (req, res) => {
 
     totalAmount = Number(totalAmount.toFixed(2))
 
-    // Check payment amount
+    // ==========================================
+    // CHECK PAYMENT AMOUNT
+    // ==========================================
+
     if (paid_amount > totalAmount) {
       await connection.rollback()
       transactionStarted = false
@@ -333,6 +471,10 @@ export const createFishSale = async (req, res) => {
       })
     }
 
+    // ==========================================
+    // CALCULATE PAYMENT SUMMARY
+    // ==========================================
+
     const dueAmount = Number(
       (totalAmount - paid_amount).toFixed(2)
     )
@@ -341,37 +483,102 @@ export const createFishSale = async (req, res) => {
 
     if (paid_amount > 0 && dueAmount > 0) {
       paymentStatus = 'partial'
-    } 
+    }
     else if (dueAmount === 0) {
       paymentStatus = 'paid'
     }
 
-    // Generate invoice number
+    // ==========================================
+    // GENERATE INVOICE NUMBER
+    // ==========================================
+
     const invoiceNumber =
       `FS-${sale_date.replaceAll('-', '')}-${randomUUID().slice(0, 8).toUpperCase()}`
 
-    // Insert sale
+    // ==========================================
+    // INSERT FISH SALE
+    // ==========================================
+
     const [saleResult] = await connection.execute(
-      `INSERT INTO fish_sales ( invoice_number, dealer_id, pond_id, sale_date, total_amount, paid_amount, due_amount,payment_status, notes, created_by ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [ invoiceNumber, dealer_id, pond_id, sale_date, totalAmount, paid_amount, dueAmount, paymentStatus, notes, req.user?.id || null ] )
+      `INSERT INTO fish_sales (
+        invoice_number,
+        dealer_id,
+        pond_id,
+        sale_date,
+        total_amount,
+        paid_amount,
+        due_amount,
+        payment_status,
+        notes,
+        created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        invoiceNumber,
+        dealer_id,
+        pond_id,
+        sale_date,
+        totalAmount,
+        paid_amount,
+        dueAmount,
+        paymentStatus,
+        notes,
+        req.user?.id || null,
+      ]
+    )
 
     const saleId = saleResult.insertId
 
-    // Insert sale items
+    // ==========================================
+    // INSERT SALE ITEMS
+    // ==========================================
+
     for (const item of validatedItems) {
       await connection.execute(
-        `INSERT INTO fish_sale_items ( sale_id, species_id, harvest_id, quantity_kg, unit_price_per_kg, subtotal, notes) VALUES (?, ?, NULL, ?, ?, ?, ?)`,
-        [ saleId, item.species_id, item.quantity_kg, item.unit_price_per_kg, item.subtotal, item.notes] )
+        `INSERT INTO fish_sale_items (
+          sale_id,
+          species_id,
+          harvest_id,
+          quantity_kg,
+          unit_price_per_kg,
+          subtotal,
+          notes
+        ) VALUES (?, ?, NULL, ?, ?, ?, ?)`,
+        [
+          saleId,
+          item.species_id,
+          item.quantity_kg,
+          item.unit_price_per_kg,
+          item.subtotal,
+          item.notes,
+        ]
+      )
     }
 
-    // Save initial payment in payment history
+    // ==========================================
+    // SAVE INITIAL PAYMENT
+    // ==========================================
+
     if (paid_amount > 0) {
       await connection.execute(
-        `INSERT INTO fish_sale_payments ( sale_id, payment_date, amount, payment_method ) VALUES (?, ?, ?, ?)`,
-        [ saleId, sale_date, paid_amount, payment_method, ] )
+        `INSERT INTO fish_sale_payments (
+          sale_id,
+          payment_date,
+          amount,
+          payment_method
+        ) VALUES (?, ?, ?, ?)`,
+        [
+          saleId,
+          sale_date,
+          paid_amount,
+          payment_method,
+        ]
+      )
     }
 
-    // Commit transaction
+    // ==========================================
+    // COMMIT TRANSACTION
+    // ==========================================
+
     await connection.commit()
     transactionStarted = false
 
@@ -391,8 +598,7 @@ export const createFishSale = async (req, res) => {
         items: validatedItems,
       },
     })
-
-  } 
+  }
   catch (error) {
     if (connection && transactionStarted) {
       await connection.rollback()
@@ -404,8 +610,7 @@ export const createFishSale = async (req, res) => {
       success: false,
       message: 'Failed to create fish sale.',
     })
-
-  } 
+  }
   finally {
     if (connection) {
       connection.release()
@@ -419,6 +624,7 @@ export const createFishSale = async (req, res) => {
 
 export const addFishSalePayment = async (req, res) => {
   const saleId = Number(req.params.id)
+
   const parsed = paymentSchema.safeParse(req.body)
 
   if (!Number.isInteger(saleId) || saleId <= 0) {
@@ -436,8 +642,15 @@ export const addFishSalePayment = async (req, res) => {
     })
   }
 
-  const { payment_date, amount, payment_method, reference_number, notes } = parsed.data
+  const {
+    payment_date,
+    amount,
+    payment_method,
+    reference_number,
+    notes,
+  } = parsed.data
 
+  // Validate payment date
   if (!isValidDate(payment_date)) {
     return res.status(400).json({
       success: false,
@@ -461,9 +674,17 @@ export const addFishSalePayment = async (req, res) => {
     await connection.beginTransaction()
     transactionStarted = true
 
-    // Find sale and lock the record
+    // ==========================================
+    // FIND SALE AND LOCK RECORD
+    // ==========================================
+
     const [sales] = await connection.execute(
-      `SELECT id, DATE_FORMAT(sale_date, '%Y-%m-%d') AS sale_date, total_amount, paid_amount, due_amount
+      `SELECT
+        id,
+        DATE_FORMAT(sale_date, '%Y-%m-%d') AS sale_date,
+        total_amount,
+        paid_amount,
+        due_amount
       FROM fish_sales
       WHERE id = ?
       FOR UPDATE`,
@@ -482,7 +703,10 @@ export const addFishSalePayment = async (req, res) => {
 
     const sale = sales[0]
 
-    // Validate payment date
+    // ==========================================
+    // VALIDATE PAYMENT DATE
+    // ==========================================
+
     if (payment_date < String(sale.sale_date).slice(0, 10)) {
       await connection.rollback()
       transactionStarted = false
@@ -493,7 +717,10 @@ export const addFishSalePayment = async (req, res) => {
       })
     }
 
-    // Check remaining due
+    // ==========================================
+    // CHECK REMAINING DUE
+    // ==========================================
+
     const currentDue = Number(sale.due_amount)
 
     if (currentDue <= 0) {
@@ -517,7 +744,10 @@ export const addFishSalePayment = async (req, res) => {
       })
     }
 
-    // Calculate updated amounts
+    // ==========================================
+    // CALCULATE UPDATED PAYMENT SUMMARY
+    // ==========================================
+
     const newPaidAmount = Number(
       (Number(sale.paid_amount) + amount).toFixed(2)
     )
@@ -530,19 +760,50 @@ export const addFishSalePayment = async (req, res) => {
       ? 'paid'
       : 'partial'
 
-    // Insert payment history
-    const [paymentResult] = await connection.execute(
-      `INSERT INTO fish_sale_payments ( sale_id, payment_date, amount, payment_method, reference_number, notes ) VALUES (?, ?, ?, ?, ?, ?)`,
-      [ saleId, payment_date, amount, payment_method, reference_number, notes, ])
+    // ==========================================
+    // INSERT PAYMENT HISTORY
+    // ==========================================
 
-    // Update sale payment summary
-    await connection.execute(
-      `UPDATE fish_sales
-       SET paid_amount = ?, due_amount = ?, payment_status = ?
-       WHERE id = ?`,
-      [ newPaidAmount, newDueAmount, paymentStatus, saleId,
+    const [paymentResult] = await connection.execute(
+      `INSERT INTO fish_sale_payments (
+        sale_id,
+        payment_date,
+        amount,
+        payment_method,
+        reference_number,
+        notes
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        saleId,
+        payment_date,
+        amount,
+        payment_method,
+        reference_number,
+        notes,
       ]
     )
+
+    // ==========================================
+    // UPDATE SALE PAYMENT SUMMARY
+    // ==========================================
+
+    await connection.execute(
+      `UPDATE fish_sales
+       SET paid_amount = ?,
+           due_amount = ?,
+           payment_status = ?
+       WHERE id = ?`,
+      [
+        newPaidAmount,
+        newDueAmount,
+        paymentStatus,
+        saleId,
+      ]
+    )
+
+    // ==========================================
+    // COMMIT TRANSACTION
+    // ==========================================
 
     await connection.commit()
     transactionStarted = false
@@ -566,8 +827,7 @@ export const addFishSalePayment = async (req, res) => {
         payment_status: paymentStatus,
       },
     })
-
-  } 
+  }
   catch (error) {
     if (connection && transactionStarted) {
       await connection.rollback()
@@ -579,8 +839,7 @@ export const addFishSalePayment = async (req, res) => {
       success: false,
       message: 'Failed to add payment.',
     })
-
-  } 
+  }
   finally {
     if (connection) {
       connection.release()

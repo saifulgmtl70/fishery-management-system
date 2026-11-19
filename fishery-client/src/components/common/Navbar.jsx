@@ -89,7 +89,7 @@ function Navbar() {
           {/* Management Portal Button */}
           <div className="fishery-header-action">
             <Link to="/login" className="fishery-portal-button">
-              <span>Management Portal</span>
+              <span>Admin Portal </span>
               <ArrowUpRight size={16} />
             </Link>
           </div>
@@ -141,7 +141,7 @@ function Navbar() {
               tabIndex={menuOpen ? 0 : -1}
               className="fishery-mobile-portal"
             >
-              Management Portal
+              Admin Portal
               <ArrowUpRight size={17} />
             </Link>
 

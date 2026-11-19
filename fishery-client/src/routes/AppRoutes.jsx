@@ -38,12 +38,20 @@ import FishSaleManagement from '../admin/pages/FishSales/FishSaleManagement.'
 
 import FinanceOverview from '../admin/pages/Finance/FinanceOverview'
 import ExpenseManagement from '../admin/pages/Finance/ExpenseManagement'
+import IncomeManagement from '../admin/pages/Finance/IncomeManagement'
+import ProfitLoss from '../admin/pages/Finance/ProfitLoss'
+
 
 // Route Protection
 import ProtectedRoute from './ProtectedRoute'
 import GuestRoute from './GuestRoute'
+import FinancialReports from '../admin/pages/Finance/FinancialReports'
+import LakeManagement from '../admin/pages/Lake/LakeManagement'
+
+
 
 function AppRoutes() {
+
   return (
     <Routes>
 
@@ -71,6 +79,9 @@ function AppRoutes() {
           {/* Pond Management */}
           <Route path="ponds" element={<PondManagement />} />
 
+          {/* Lake Management */}
+          <Route path="lake" element={<LakeManagement />} />
+
           {/* Fish Management */}
           <Route path="fish" element={<FishStockManagement />} />
           <Route path="fish-species" element={<FishSpeciesManagement />} />
@@ -86,12 +97,17 @@ function AppRoutes() {
           <Route path="feed-stock" element={<FeedStockManagement />} />
 
           {/* Dealer Management */}
+
           <Route path="dealers" element={<DealerManagement />} />
           {/* Sales Management */}
           <Route path="fish-sales" element={<FishSaleManagement />} />
+
           {/* Finance Management */}
           <Route path="finance" element={<FinanceOverview />} />
+          <Route path="income" element={<IncomeManagement />} />
           <Route path="expenses" element={<ExpenseManagement />} />
+          <Route path="profit-loss" element={<ProfitLoss />} />
+          <Route path="financial-reports" element={<FinancialReports />} />
 
         </Route>
       </Route>

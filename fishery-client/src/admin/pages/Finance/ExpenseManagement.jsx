@@ -1,10 +1,8 @@
-
 import { useEffect, useMemo, useState } from 'react'
 import {
   Plus,
   Search,
   Wallet,
-  TrendingDown,
   ShoppingBag,
   Receipt,
   CalendarDays,
@@ -17,16 +15,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../../../services/api'
-
-const expenseCategories = [
-  'Labor Wages',
-  'Transportation',
-  'Medicine',
-  'Pond Maintenance',
-  'Electricity',
-  'Equipment',
-  'Other',
-]
 
 const initialFormData = {
   category_id: '',
@@ -44,11 +32,25 @@ const formatCurrency = (amount) =>
     maximumFractionDigits: 2,
   })}`
 
+const getDateString = (date) => {
+  if (!date) return ''
+
+  if (typeof date === 'string') {
+    return date.slice(0, 10)
+  }
+
+  return new Date(date).toLocaleDateString('en-CA')
+}
+
 function ExpenseManagement() {
   const [expenses, setExpenses] = useState([])
+  const [feedPurchases, setFeedPurchases] = useState([])
+  const [fishStockings, setFishStockings] = useState([])
   const [categories, setCategories] = useState([])
+
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
+  const [selectedSource, setSelectedSource] = useState('All')
 
   const [showModal, setShowModal] = useState(false)
   const [editingExpense, setEditingExpense] = useState(null)
@@ -57,20 +59,45 @@ function ExpenseManagement() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  // Fetch expense records
+  // Fetch all three expense sources
   const fetchExpenses = async () => {
     try {
       setLoading(true)
 
-      const response = await api.get('/expenses')
+      const results = await Promise.allSettled([
+        api.get('/expenses'),
+        api.get('/feed-purchases'),
+        api.get('/fish-stockings'),
+      ])
 
-      setExpenses(response.data.data || [])
+      const [manualResult, feedResult, stockingResult] = results
+
+      if (manualResult.status === 'fulfilled') {
+        setExpenses(manualResult.value.data.data || [])
+      } else {
+        setExpenses([])
+        console.error('Manual Expenses Error:', manualResult.reason)
+        toast.error('Failed to load manual expenses.')
+      }
+
+      if (feedResult.status === 'fulfilled') {
+        setFeedPurchases(feedResult.value.data.purchases || [])
+      } else {
+        setFeedPurchases([])
+        console.error('Feed Purchases Error:', feedResult.reason)
+        toast.error('Failed to load feed purchases.')
+      }
+
+      if (stockingResult.status === 'fulfilled') {
+        setFishStockings(stockingResult.value.data.stockings || [])
+      } else {
+        setFishStockings([])
+        console.error('Fish Stockings Error:', stockingResult.reason)
+        toast.error('Failed to load fish stocking purchases.')
+      }
     } catch (error) {
       console.error('Fetch Expenses Error:', error)
-
-      toast.error(
-        error.response?.data?.message || 'Failed to load expenses.'
-      )
+      toast.error('Failed to load expense records.')
     } finally {
       setLoading(false)
     }
@@ -97,61 +124,168 @@ function ExpenseManagement() {
     fetchCategories()
   }, [])
 
-  // Filter expenses
-  const filteredExpenses = useMemo(() => {
-    return expenses.filter((expense) => {
-      const description = expense.description || ''
-      const category = expense.category_name || ''
+  // Normalize all expense sources
+  const allExpenses = useMemo(() => {
+    const manualRecords = expenses.map((expense) => ({
+      ...expense,
+      record_id: `manual-${expense.id}`,
+      source: 'Manual',
+      category_name: expense.category_name || 'Other Expenses',
+      expense_date: getDateString(expense.expense_date),
+      amount: Number(expense.amount || 0),
+      description: expense.description || 'Manual expense',
+      reference_number: expense.reference_number || '',
+    }))
 
-      const matchesSearch =
-        description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(expense.reference_number || '')
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase())
+    const feedRecords = feedPurchases.map((purchase) => ({
+      ...purchase,
+      record_id: `feed-${purchase.id}`,
+      source: 'Feed Purchase',
+      category_name: 'Feed Purchase',
+      expense_date: getDateString(purchase.purchase_date),
+      amount: Number(purchase.total_cost || 0),
+      description: [
+        purchase.feed_name || 'Feed',
+        purchase.brand ? `(${purchase.brand})` : '',
+        purchase.quantity_kg
+          ? `${purchase.quantity_kg} kg`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+      reference_number: purchase.invoice_number || '',
+    }))
+
+    const stockingRecords = fishStockings.map((stocking) => ({
+      ...stocking,
+      record_id: `stocking-${stocking.id}`,
+      source: 'Fish Stocking',
+      category_name: 'Fish Stocking Purchase',
+      expense_date: getDateString(stocking.stocking_date),
+      amount: Number(stocking.total_cost || 0),
+      description: [
+        stocking.species_name || 'Fish',
+        stocking.pond_name ? `- ${stocking.pond_name}` : '',
+        stocking.total_weight_kg
+          ? `${stocking.total_weight_kg} kg`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+      reference_number: '',
+    }))
+
+    return [
+      ...manualRecords,
+      ...feedRecords,
+      ...stockingRecords,
+    ].sort((a, b) => {
+      return b.expense_date.localeCompare(a.expense_date)
+    })
+  }, [expenses, feedPurchases, fishStockings])
+
+  // Category filter options
+  const categoryOptions = useMemo(() => {
+    const names = allExpenses
+      .map((expense) => expense.category_name)
+      .filter(Boolean)
+
+    return [...new Set(names)].sort()
+  }, [allExpenses])
+
+  // Filter all expense records
+  const filteredExpenses = useMemo(() => {
+    return allExpenses.filter((expense) => {
+      const search = searchTerm.toLowerCase()
+
+      const searchableFields = [
+        expense.description,
+        expense.category_name,
+        expense.reference_number,
+        expense.supplier_name,
+        expense.feed_name,
+        expense.species_name,
+        expense.pond_name,
+        expense.brand,
+        expense.invoice_number,
+        expense.source,
+      ]
+
+      const matchesSearch = searchableFields.some((field) =>
+        String(field || '').toLowerCase().includes(search)
+      )
 
       const matchesCategory =
         selectedCategory === 'All' ||
-        category === selectedCategory
+        expense.category_name === selectedCategory
 
-      return matchesSearch && matchesCategory
+      const matchesSource =
+        selectedSource === 'All' ||
+        expense.source === selectedSource
+
+      return matchesSearch && matchesCategory && matchesSource
     })
-  }, [expenses, searchTerm, selectedCategory])
+  }, [allExpenses, searchTerm, selectedCategory, selectedSource])
 
-  // Calculate summary
+  // Calculate totals
   const summary = useMemo(() => {
     const now = new Date()
     const currentMonth = now.getMonth()
     const currentYear = now.getFullYear()
 
-    const totalExpenses = expenses.reduce(
-      (total, expense) => total + Number(expense.amount),
+    const totalExpenses = allExpenses.reduce(
+      (total, expense) => total + Number(expense.amount || 0),
       0
     )
 
-    const monthlyExpenses = expenses
+    const monthlyExpenses = allExpenses
       .filter((expense) => {
-        const date = new Date(`${expense.expense_date}T00:00:00`)
+        const date = new Date(
+          `${expense.expense_date}T00:00:00`
+        )
 
         return (
           date.getMonth() === currentMonth &&
           date.getFullYear() === currentYear
         )
       })
-      .reduce((total, expense) => total + Number(expense.amount), 0)
+      .reduce(
+        (total, expense) => total + Number(expense.amount || 0),
+        0
+      )
+
+    const totalFeedPurchases = feedPurchases.reduce(
+      (total, purchase) =>
+        total + Number(purchase.total_cost || 0),
+      0
+    )
+
+    const totalStockingPurchases = fishStockings.reduce(
+      (total, stocking) =>
+        total + Number(stocking.total_cost || 0),
+      0
+    )
+
+    const totalManualExpenses = expenses.reduce(
+      (total, expense) =>
+        total + Number(expense.amount || 0),
+      0
+    )
 
     return {
       totalExpenses,
       monthlyExpenses,
-      otherExpenses: totalExpenses,
+      totalFeedPurchases,
+      totalStockingPurchases,
+      totalManualExpenses,
     }
-  }, [expenses])
+  }, [allExpenses, feedPurchases, fishStockings, expenses])
 
   const summaryCards = [
     {
       title: 'Total Expenses',
       value: formatCurrency(summary.totalExpenses),
-      description: 'All manually recorded expenses',
+      description: 'Combined expenses from all sources',
       icon: Wallet,
       color: 'text-rose-600',
       bg: 'bg-rose-50',
@@ -159,23 +293,23 @@ function ExpenseManagement() {
     {
       title: "This Month's Expenses",
       value: formatCurrency(summary.monthlyExpenses),
-      description: 'Expenses recorded this month',
+      description: 'All sources recorded this month',
       icon: CalendarDays,
       color: 'text-blue-600',
       bg: 'bg-blue-50',
     },
     {
       title: 'Feed Purchase',
-      value: 'Managed Separately',
-      description: 'Automatically derived from Feed Purchases',
+      value: formatCurrency(summary.totalFeedPurchases),
+      description: `${feedPurchases.length} feed purchase records`,
       icon: ShoppingBag,
       color: 'text-amber-600',
       bg: 'bg-amber-50',
     },
     {
-      title: 'Other Expenses',
-      value: formatCurrency(summary.otherExpenses),
-      description: 'Manually recorded operating costs',
+      title: 'Fish Stocking',
+      value: formatCurrency(summary.totalStockingPurchases),
+      description: `${fishStockings.length} stocking purchase records`,
       icon: Receipt,
       color: 'text-emerald-600',
       bg: 'bg-emerald-50',
@@ -195,10 +329,7 @@ function ExpenseManagement() {
 
     setFormData({
       category_id: String(expense.category_id),
-      expense_date:
-        typeof expense.expense_date === 'string'
-          ? expense.expense_date.slice(0, 10)
-          : '',
+      expense_date: getDateString(expense.expense_date),
       amount: String(expense.amount),
       description: expense.description || '',
       reference_number: expense.reference_number || '',
@@ -219,7 +350,7 @@ function ExpenseManagement() {
     }))
   }
 
-  // Save or update expense
+  // Save or update manual expense
   const handleSubmit = async (event) => {
     event.preventDefault()
 
@@ -245,10 +376,7 @@ function ExpenseManagement() {
       }
 
       if (editingExpense) {
-        await api.put(
-          `/expenses/${editingExpense.id}`,
-          payload
-        )
+        await api.put(`/expenses/${editingExpense.id}`, payload)
 
         toast.success('Expense updated successfully.')
       } else {
@@ -295,7 +423,7 @@ function ExpenseManagement() {
           </h1>
 
           <p className="mt-1 text-sm text-gray-500">
-            Track feed purchases and other fishery operating expenses.
+            Track manual expenses, feed purchases and fish stocking costs.
           </p>
         </div>
 
@@ -360,6 +488,57 @@ function ExpenseManagement() {
         })}
       </div>
 
+      {/* Source Summary */}
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <h2 className="font-bold text-[#123D35]">
+          Expense Source Summary
+        </h2>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-lg bg-gray-50 p-4">
+            <p className="text-xs font-medium text-gray-500">
+              Manual Expenses
+            </p>
+
+            <p className="mt-2 text-lg font-bold text-gray-800">
+              {formatCurrency(summary.totalManualExpenses)}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-400">
+              {expenses.length} records
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-amber-50 p-4">
+            <p className="text-xs font-medium text-amber-700">
+              Feed Purchases
+            </p>
+
+            <p className="mt-2 text-lg font-bold text-gray-800">
+              {formatCurrency(summary.totalFeedPurchases)}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-400">
+              {feedPurchases.length} records
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-emerald-50 p-4">
+            <p className="text-xs font-medium text-emerald-700">
+              Fish Stocking Purchases
+            </p>
+
+            <p className="mt-2 text-lg font-bold text-gray-800">
+              {formatCurrency(summary.totalStockingPurchases)}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-400">
+              {fishStockings.length} records
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Expense Records */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-100 p-5">
@@ -370,11 +549,12 @@ function ExpenseManagement() {
               </h2>
 
               <p className="mt-1 text-xs text-gray-500">
-                View and manage all recorded expenses.
+                All expenses from manual records, feed and fish stocking.
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              {/* Search */}
               <div className="relative">
                 <Search
                   size={17}
@@ -390,6 +570,7 @@ function ExpenseManagement() {
                 />
               </div>
 
+              {/* Category Filter */}
               <div className="relative">
                 <Filter
                   size={16}
@@ -405,23 +586,34 @@ function ExpenseManagement() {
                 >
                   <option value="All">All Categories</option>
 
-                  {categories.map((category) => (
-                    <option
-                      key={category.id}
-                      value={category.category_name}
-                    >
-                      {category.category_name}
+                  {categoryOptions.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
                     </option>
                   ))}
                 </select>
               </div>
+
+              {/* Source Filter */}
+              <select
+                value={selectedSource}
+                onChange={(event) =>
+                  setSelectedSource(event.target.value)
+                }
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 sm:w-44"
+              >
+                <option value="All">All Sources</option>
+                <option value="Manual">Manual</option>
+                <option value="Feed Purchase">Feed Purchase</option>
+                <option value="Fish Stocking">Fish Stocking</option>
+              </select>
             </div>
           </div>
         </div>
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[750px] text-left">
+          <table className="w-full min-w-[950px] text-left">
             <thead className="bg-[#F7F9F7]">
               <tr className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <th className="px-5 py-4">Date</th>
@@ -429,6 +621,7 @@ function ExpenseManagement() {
                 <th className="px-5 py-4">Description</th>
                 <th className="px-5 py-4">Amount</th>
                 <th className="px-5 py-4">Source</th>
+                <th className="px-5 py-4">Reference</th>
                 <th className="px-5 py-4 text-center">Actions</th>
               </tr>
             </thead>
@@ -436,7 +629,7 @@ function ExpenseManagement() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="px-5 py-16 text-center">
+                  <td colSpan="7" className="px-5 py-16 text-center">
                     <LoaderCircle
                       size={28}
                       className="mx-auto animate-spin text-emerald-700"
@@ -449,9 +642,12 @@ function ExpenseManagement() {
                 </tr>
               ) : filteredExpenses.length > 0 ? (
                 filteredExpenses.map((expense) => (
-                  <tr key={expense.id} className="hover:bg-gray-50/70">
+                  <tr
+                    key={expense.record_id}
+                    className="transition hover:bg-gray-50/70"
+                  >
                     <td className="px-5 py-4 text-sm text-gray-600">
-                      {String(expense.expense_date).slice(0, 10)}
+                      {expense.expense_date || '—'}
                     </td>
 
                     <td className="px-5 py-4 text-sm font-medium text-gray-700">
@@ -467,28 +663,46 @@ function ExpenseManagement() {
                     </td>
 
                     <td className="px-5 py-4">
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                        Manual
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                          expense.source === 'Manual'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : expense.source === 'Feed Purchase'
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-blue-50 text-blue-700'
+                        }`}
+                      >
+                        {expense.source}
                       </span>
                     </td>
 
+                    <td className="px-5 py-4 text-sm text-gray-500">
+                      {expense.reference_number || '—'}
+                    </td>
+
                     <td className="px-5 py-4">
-                      <div className="flex justify-center gap-2">
-                        <button
-                          type="button"
-                          title="Edit"
-                          onClick={() => handleEditExpense(expense)}
-                          className="rounded-lg p-2 text-gray-500 transition hover:bg-emerald-50 hover:text-emerald-700"
-                        >
-                          <Pencil size={17} />
-                        </button>
+                      <div className="flex justify-center">
+                        {expense.source === 'Manual' ? (
+                          <button
+                            type="button"
+                            title="Edit"
+                            onClick={() => handleEditExpense(expense)}
+                            className="rounded-lg p-2 text-gray-500 transition hover:bg-emerald-50 hover:text-emerald-700"
+                          >
+                            <Pencil size={17} />
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400">
+                            Managed in module
+                          </span>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="6" className="px-5 py-16 text-center">
+                  <td colSpan="7" className="px-5 py-16 text-center">
                     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-400">
                       <Receipt size={26} />
                     </div>
@@ -498,7 +712,7 @@ function ExpenseManagement() {
                     </h3>
 
                     <p className="mt-1 text-xs text-gray-400">
-                      Your recorded expenses will appear here.
+                      Try changing the search or filters.
                     </p>
                   </td>
                 </tr>
@@ -508,9 +722,21 @@ function ExpenseManagement() {
         </div>
 
         <div className="border-t border-gray-100 px-5 py-4">
-          <p className="text-xs text-gray-400">
-            Showing {filteredExpenses.length} expense records
-          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-gray-400">
+              Showing {filteredExpenses.length} of {allExpenses.length} records
+            </p>
+
+            <p className="text-sm font-semibold text-gray-700">
+              Filtered Total: {formatCurrency(
+                filteredExpenses.reduce(
+                  (total, expense) =>
+                    total + Number(expense.amount || 0),
+                  0
+                )
+              )}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -522,7 +748,9 @@ function ExpenseManagement() {
               <div className="flex items-center justify-between border-b border-gray-100 p-5">
                 <div>
                   <h2 className="font-bold text-[#123D35]">
-                    {editingExpense ? 'Edit Expense' : 'Add New Expense'}
+                    {editingExpense
+                      ? 'Edit Expense'
+                      : 'Add New Expense'}
                   </h2>
 
                   <p className="mt-1 text-xs text-gray-500">
@@ -558,14 +786,18 @@ function ExpenseManagement() {
                     </option>
 
                     {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
+                      <option
+                        key={category.id}
+                        value={category.id}
+                      >
                         {category.category_name}
                       </option>
                     ))}
                   </select>
 
                   <p className="mt-1.5 text-xs text-gray-400">
-                    Feed purchases are recorded automatically from Feed Management.
+                    Feed and fish stocking purchases are automatically
+                    recorded from their respective modules.
                   </p>
                 </div>
 
@@ -648,7 +880,9 @@ function ExpenseManagement() {
                   >
                     <option value="cash">Cash</option>
                     <option value="bank">Bank</option>
-                    <option value="mobile_banking">Mobile Banking</option>
+                    <option value="mobile_banking">
+                      Mobile Banking
+                    </option>
                     <option value="other">Other</option>
                   </select>
                 </div>
@@ -684,7 +918,10 @@ function ExpenseManagement() {
                     className="inline-flex items-center gap-2 rounded-lg bg-[#123D35] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1B5749] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {saving ? (
-                      <LoaderCircle size={17} className="animate-spin" />
+                      <LoaderCircle
+                        size={17}
+                        className="animate-spin"
+                      />
                     ) : (
                       <Save size={17} />
                     )}

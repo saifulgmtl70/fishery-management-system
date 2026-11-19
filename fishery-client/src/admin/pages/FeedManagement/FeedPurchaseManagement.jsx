@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react'
 import {
   Plus,
@@ -10,19 +11,60 @@ import {
   X,
   LoaderCircle,
   CalendarDays,
-  Truck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../../../services/api'
 
+// ==========================================
+// DATE HELPERS
+// ==========================================
+
 const getToday = () => {
   const today = new Date()
+
   const year = today.getFullYear()
   const month = String(today.getMonth() + 1).padStart(2, '0')
   const day = String(today.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
 }
+
+// Convert API date into Bangladesh local date (YYYY-MM-DD)
+const getDhakaDate = (date) => {
+  if (!date) return ''
+
+  const parsedDate = new Date(date)
+
+  if (Number.isNaN(parsedDate.getTime())) return ''
+
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Dhaka',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(parsedDate)
+
+  const year = parts.find((part) => part.type === 'year')?.value
+  const month = parts.find((part) => part.type === 'month')?.value
+  const day = parts.find((part) => part.type === 'day')?.value
+
+  return `${year}-${month}-${day}`
+}
+
+// Display date as DD/MM/YYYY
+const formatDate = (date) => {
+  const dhakaDate = getDhakaDate(date)
+
+  if (!dhakaDate) return '—'
+
+  const [year, month, day] = dhakaDate.split('-')
+
+  return `${day}/${month}/${year}`
+}
+
+// ==========================================
+// INITIAL FORM
+// ==========================================
 
 const initialForm = {
   feed_type_id: '',
@@ -34,12 +76,20 @@ const initialForm = {
   notes: '',
 }
 
+// ==========================================
+// FORMAT MONEY
+// ==========================================
+
 const formatMoney = (amount) => {
   return `৳${Number(amount || 0).toLocaleString('en-BD', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
 }
+
+// ==========================================
+// MAIN COMPONENT
+// ==========================================
 
 const FeedPurchaseManagement = () => {
   const [purchases, setPurchases] = useState([])
@@ -55,6 +105,10 @@ const FeedPurchaseManagement = () => {
 
   const [form, setForm] = useState(initialForm)
 
+  // ========================================
+  // FETCH DATA
+  // ========================================
+
   const fetchData = async () => {
     try {
       setLoading(true)
@@ -67,11 +121,13 @@ const FeedPurchaseManagement = () => {
         ])
 
       setPurchases(purchaseResponse.data.purchases || [])
+
       setFeedTypes(
         (feedResponse.data.feedTypes || []).filter(
           (item) => item.status === 'active'
         )
       )
+
       setSuppliers(
         (supplierResponse.data.suppliers || []).filter(
           (item) => item.status === 'active'
@@ -91,6 +147,10 @@ const FeedPurchaseManagement = () => {
     fetchData()
   }, [])
 
+  // ========================================
+  // SEARCH FILTER
+  // ========================================
+
   const filteredPurchases = purchases.filter((purchase) => {
     const searchText = search.toLowerCase()
 
@@ -101,6 +161,10 @@ const FeedPurchaseManagement = () => {
       purchase.invoice_number?.toLowerCase().includes(searchText)
     )
   })
+
+  // ========================================
+  // SUMMARY CALCULATIONS
+  // ========================================
 
   const totalPurchased = purchases.reduce(
     (sum, item) => sum + Number(item.quantity_kg || 0),
@@ -116,26 +180,37 @@ const FeedPurchaseManagement = () => {
     Number(form.quantity_kg || 0) *
     Number(form.unit_price || 0)
 
+  // ========================================
+  // OPEN ADD MODAL
+  // ========================================
+
   const openAddModal = () => {
     setEditingPurchase(null)
+
     setForm({
       ...initialForm,
       purchase_date: getToday(),
     })
+
     setShowModal(true)
   }
+
+  // ========================================
+  // OPEN EDIT MODAL
+  // ========================================
 
   const openEditModal = (purchase) => {
     setEditingPurchase(purchase)
 
     setForm({
       feed_type_id: String(purchase.feed_type_id),
+
       supplier_id: purchase.supplier_id
         ? String(purchase.supplier_id)
         : '',
-      purchase_date: purchase.purchase_date
-        ? String(purchase.purchase_date).slice(0, 10)
-        : getToday(),
+
+      purchase_date: getDhakaDate(purchase.purchase_date) || getToday(),
+
       quantity_kg: String(purchase.quantity_kg || ''),
       unit_price: String(purchase.unit_price || ''),
       invoice_number: purchase.invoice_number || '',
@@ -145,6 +220,10 @@ const FeedPurchaseManagement = () => {
     setShowModal(true)
   }
 
+  // ========================================
+  // HANDLE FORM CHANGE
+  // ========================================
+
   const handleChange = (e) => {
     const { name, value } = e.target
 
@@ -153,6 +232,10 @@ const FeedPurchaseManagement = () => {
       [name]: value,
     }))
   }
+
+  // ========================================
+  // HANDLE FORM SUBMIT
+  // ========================================
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -177,10 +260,13 @@ const FeedPurchaseManagement = () => {
 
     const payload = {
       ...form,
+
       feed_type_id: Number(form.feed_type_id),
+
       supplier_id: form.supplier_id
         ? Number(form.supplier_id)
         : null,
+
       quantity_kg: Number(form.quantity_kg),
       unit_price: Number(form.unit_price),
     }
@@ -216,9 +302,15 @@ const FeedPurchaseManagement = () => {
     }
   }
 
+  // ========================================
+  // RENDER
+  // ========================================
+
   return (
     <div className="space-y-6">
+
       {/* Page Header */}
+
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <p className="mb-1 text-sm font-medium text-emerald-700">
@@ -244,12 +336,15 @@ const FeedPurchaseManagement = () => {
       </div>
 
       {/* Summary Cards */}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-slate-500">
               Total Purchase Records
             </p>
+
             <ShoppingBag size={21} className="text-emerald-700" />
           </div>
 
@@ -263,6 +358,7 @@ const FeedPurchaseManagement = () => {
             <p className="text-sm font-medium text-slate-500">
               Total Feed Purchased
             </p>
+
             <Package size={21} className="text-emerald-700" />
           </div>
 
@@ -281,6 +377,7 @@ const FeedPurchaseManagement = () => {
             <p className="text-sm font-medium text-slate-500">
               Total Purchase Cost
             </p>
+
             <Wallet size={21} className="text-emerald-700" />
           </div>
 
@@ -288,11 +385,15 @@ const FeedPurchaseManagement = () => {
             {formatMoney(totalPurchaseCost)}
           </h2>
         </div>
+
       </div>
 
       {/* Purchase History */}
+
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+
         <div className="flex flex-col justify-between gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center">
+
           <div>
             <h2 className="font-bold text-slate-900">
               Purchase History
@@ -304,6 +405,7 @@ const FeedPurchaseManagement = () => {
           </div>
 
           <div className="flex gap-2">
+
             <div className="relative">
               <Search
                 size={17}
@@ -330,28 +432,57 @@ const FeedPurchaseManagement = () => {
                 className={loading ? 'animate-spin' : ''}
               />
             </button>
+
           </div>
         </div>
 
         <div className="overflow-x-auto">
+
           <table className="w-full min-w-[1050px] text-left text-sm">
+
             <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-5 py-4 font-semibold">Feed Type</th>
-                <th className="px-5 py-4 font-semibold">Supplier</th>
-                <th className="px-5 py-4 font-semibold">Date</th>
-                <th className="px-5 py-4 font-semibold">Quantity</th>
-                <th className="px-5 py-4 font-semibold">Unit Price</th>
-                <th className="px-5 py-4 font-semibold">Total Cost</th>
-                <th className="px-5 py-4 font-semibold">Invoice</th>
-                <th className="px-5 py-4 text-right font-semibold">Action</th>
+                <th className="px-5 py-4 font-semibold">
+                  Feed Type
+                </th>
+
+                <th className="px-5 py-4 font-semibold">
+                  Supplier
+                </th>
+
+                <th className="px-5 py-4 font-semibold">
+                  Date
+                </th>
+
+                <th className="px-5 py-4 font-semibold">
+                  Quantity
+                </th>
+
+                <th className="px-5 py-4 font-semibold">
+                  Unit Price
+                </th>
+
+                <th className="px-5 py-4 font-semibold">
+                  Total Cost
+                </th>
+
+                <th className="px-5 py-4 font-semibold">
+                  Invoice
+                </th>
+
+                <th className="px-5 py-4 text-right font-semibold">
+                  Action
+                </th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-100">
+
               {loading ? (
+
                 <tr>
                   <td colSpan="8" className="px-5 py-16 text-center">
+
                     <LoaderCircle
                       className="mx-auto animate-spin text-emerald-700"
                       size={26}
@@ -360,11 +491,15 @@ const FeedPurchaseManagement = () => {
                     <p className="mt-2 text-sm text-slate-500">
                       Loading purchase records...
                     </p>
+
                   </td>
                 </tr>
+
               ) : filteredPurchases.length === 0 ? (
+
                 <tr>
                   <td colSpan="8" className="px-5 py-16 text-center">
+
                     <ShoppingBag
                       size={34}
                       className="mx-auto text-slate-300"
@@ -390,14 +525,21 @@ const FeedPurchaseManagement = () => {
                         + Record First Purchase
                       </button>
                     )}
+
                   </td>
                 </tr>
+
               ) : (
+
                 filteredPurchases.map((purchase) => (
+
                   <tr
                     key={purchase.id}
                     className="transition hover:bg-slate-50/70"
                   >
+
+                    {/* Feed Type + Brand */}
+
                     <td className="px-5 py-4">
                       <div className="font-semibold text-slate-800">
                         {purchase.feed_name}
@@ -405,41 +547,54 @@ const FeedPurchaseManagement = () => {
 
                       {purchase.brand && (
                         <div className="mt-1 text-xs text-slate-400">
-                          {purchase.brand}
+                          Brand: {purchase.brand}
                         </div>
                       )}
                     </td>
+
+                    {/* Supplier */}
 
                     <td className="px-5 py-4 text-slate-600">
                       {purchase.supplier_name || 'Not specified'}
                     </td>
 
+                    {/* Purchase Date */}
+
                     <td className="px-5 py-4 text-slate-600">
-                      {purchase.purchase_date
-                        ? new Date(
-                            `${String(purchase.purchase_date).slice(0, 10)}T00:00:00`
-                          ).toLocaleDateString('en-GB')
-                        : '—'}
+                      {formatDate(purchase.purchase_date)}
                     </td>
 
+                    {/* Quantity */}
+
                     <td className="px-5 py-4 font-medium text-slate-700">
-                      {Number(purchase.quantity_kg).toLocaleString('en-BD', {
-                        maximumFractionDigits: 3,
-                      })}{' '}
+                      {Number(purchase.quantity_kg).toLocaleString(
+                        'en-BD',
+                        {
+                          maximumFractionDigits: 3,
+                        }
+                      )}{' '}
                       kg
                     </td>
+
+                    {/* Unit Price */}
 
                     <td className="px-5 py-4 text-slate-600">
                       {formatMoney(purchase.unit_price)}
                     </td>
 
+                    {/* Total Cost */}
+
                     <td className="px-5 py-4 font-semibold text-slate-900">
                       {formatMoney(purchase.total_cost)}
                     </td>
 
+                    {/* Invoice */}
+
                     <td className="px-5 py-4 text-slate-600">
                       {purchase.invoice_number || '—'}
                     </td>
+
+                    {/* Action */}
 
                     <td className="px-5 py-4 text-right">
                       <button
@@ -450,11 +605,17 @@ const FeedPurchaseManagement = () => {
                         <Pencil size={16} />
                       </button>
                     </td>
+
                   </tr>
+
                 ))
+
               )}
+
             </tbody>
+
           </table>
+
         </div>
 
         {!loading && purchases.length > 0 && (
@@ -462,13 +623,21 @@ const FeedPurchaseManagement = () => {
             Showing {filteredPurchases.length} of {purchases.length} purchase records
           </div>
         )}
+
       </div>
 
-      {/* Add/Edit Purchase Modal */}
+      {/* Add / Edit Purchase Modal */}
+
       {showModal && (
+
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+
           <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+
+            {/* Modal Header */}
+
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
                   {editingPurchase
@@ -487,11 +656,17 @@ const FeedPurchaseManagement = () => {
               >
                 <X size={19} />
               </button>
+
             </div>
 
+            {/* Purchase Form */}
+
             <form onSubmit={handleSubmit} className="space-y-5 p-6">
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
                 {/* Feed Type */}
+
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
                     Feed Type *
@@ -504,7 +679,9 @@ const FeedPurchaseManagement = () => {
                     required
                     className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-600"
                   >
-                    <option value="">Select Feed Type</option>
+                    <option value="">
+                      Select Feed Type
+                    </option>
 
                     {feedTypes.map((feed) => (
                       <option key={feed.id} value={feed.id}>
@@ -522,6 +699,7 @@ const FeedPurchaseManagement = () => {
                 </div>
 
                 {/* Supplier */}
+
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
                     Supplier
@@ -533,7 +711,9 @@ const FeedPurchaseManagement = () => {
                     onChange={handleChange}
                     className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-600"
                   >
-                    <option value="">Select Supplier (Optional)</option>
+                    <option value="">
+                      Select Supplier (Optional)
+                    </option>
 
                     {suppliers.map((supplier) => (
                       <option key={supplier.id} value={supplier.id}>
@@ -550,6 +730,7 @@ const FeedPurchaseManagement = () => {
                 </div>
 
                 {/* Purchase Date */}
+
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
                     Purchase Date *
@@ -573,6 +754,7 @@ const FeedPurchaseManagement = () => {
                 </div>
 
                 {/* Quantity */}
+
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
                     Quantity (kg) *
@@ -592,6 +774,7 @@ const FeedPurchaseManagement = () => {
                 </div>
 
                 {/* Unit Price */}
+
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
                     Unit Price (৳/kg) *
@@ -611,6 +794,7 @@ const FeedPurchaseManagement = () => {
                 </div>
 
                 {/* Invoice */}
+
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
                     Invoice Number
@@ -626,11 +810,15 @@ const FeedPurchaseManagement = () => {
                     className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
                   />
                 </div>
+
               </div>
 
               {/* Total Cost Preview */}
+
               <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+
                 <div className="flex items-center justify-between gap-3">
+
                   <div>
                     <p className="text-sm font-medium text-emerald-800">
                       Estimated Total Cost
@@ -644,14 +832,17 @@ const FeedPurchaseManagement = () => {
                   <h3 className="text-xl font-bold text-emerald-900">
                     {formatMoney(calculatedTotal)}
                   </h3>
+
                 </div>
 
                 <p className="mt-2 text-xs text-emerald-700">
                   Final total will be calculated and saved by the backend.
                 </p>
+
               </div>
 
               {/* Notes */}
+
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700">
                   Notes
@@ -667,8 +858,10 @@ const FeedPurchaseManagement = () => {
                 />
               </div>
 
-              {/* Actions */}
+              {/* Modal Actions */}
+
               <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
@@ -693,11 +886,17 @@ const FeedPurchaseManagement = () => {
                     ? 'Save Changes'
                     : 'Record Purchase'}
                 </button>
+
               </div>
+
             </form>
+
           </div>
+
         </div>
+
       )}
+
     </div>
   )
 }

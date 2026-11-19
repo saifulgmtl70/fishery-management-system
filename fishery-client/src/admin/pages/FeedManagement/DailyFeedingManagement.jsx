@@ -11,6 +11,8 @@ import {
   Package,
   Clock,
   Utensils,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../../../services/api'
@@ -47,7 +49,11 @@ const DailyFeedingManagement = () => {
   const [feedTypes, setFeedTypes] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
+
   const [showModal, setShowModal] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+
   const [search, setSearch] = useState('')
   const [form, setForm] = useState(initialForm)
 
@@ -62,11 +68,13 @@ const DailyFeedingManagement = () => {
       ])
 
       setFeedings(feedingRes.data.feedings || [])
+
       setPonds(
         (pondRes.data.ponds || []).filter(
           (pond) => pond.status === 'active'
         )
       )
+
       setFeedTypes(
         (feedTypeRes.data.feedTypes || []).filter(
           (feed) => feed.status === 'active'
@@ -90,6 +98,39 @@ const DailyFeedingManagement = () => {
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
+  // Open modal for adding a new feeding record
+  const handleAdd = () => {
+    setEditingId(null)
+    setForm(initialForm)
+    setShowModal(true)
+  }
+
+  // Open modal with existing record information
+  const handleEdit = (item) => {
+    setEditingId(item.id)
+
+    setForm({
+      pond_id: String(item.pond_id),
+      feed_type_id: String(item.feed_type_id),
+      feeding_date: String(item.feeding_date).slice(0, 10),
+      quantity_kg: String(item.quantity_kg),
+      feeding_time: item.feeding_time || '',
+      notes: item.notes || '',
+    })
+
+    setShowModal(true)
+  }
+
+  // Close modal and reset form
+  const handleCloseModal = () => {
+    if (saving) return
+
+    setShowModal(false)
+    setEditingId(null)
+    setForm(initialForm)
+  }
+
+  // Create or update feeding record
   const handleSubmit = async (e) => {
     e.preventDefault()
 
@@ -100,6 +141,11 @@ const DailyFeedingManagement = () => {
       !form.quantity_kg
     ) {
       toast.error('Please fill in all required fields.')
+      return
+    }
+
+    if (Number(form.quantity_kg) <= 0) {
+      toast.error('Feed quantity must be greater than zero.')
       return
     }
 
@@ -115,21 +161,68 @@ const DailyFeedingManagement = () => {
         notes: form.notes || null,
       }
 
-      const response = await api.post('/daily-feedings', payload)
+      let response
+
+      if (editingId) {
+        response = await api.put(
+          `/daily-feedings/${editingId}`,
+          payload
+        )
+      } else {
+        response = await api.post('/daily-feedings', payload)
+      }
 
       toast.success(
-        response.data.message || 'Feeding record saved successfully.'
+        response.data.message ||
+          (editingId
+            ? 'Feeding record updated successfully.'
+            : 'Feeding record saved successfully.')
       )
 
       setShowModal(false)
+      setEditingId(null)
       setForm(initialForm)
+
       await fetchData()
     } catch (error) {
       toast.error(
-        error.response?.data?.message || 'Failed to save feeding record.'
+        error.response?.data?.message ||
+          (editingId
+            ? 'Failed to update feeding record.'
+            : 'Failed to save feeding record.')
       )
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Delete a feeding record
+  const handleDelete = async (item) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete this feeding record?\n\nPond: ${item.pond_name}\nFeed: ${item.feed_name}\nQuantity: ${item.quantity_kg} kg\n\nThe available feed stock will be recalculated.`
+    )
+
+    if (!confirmed) return
+
+    try {
+      setDeletingId(item.id)
+
+      const response = await api.delete(
+        `/daily-feedings/${item.id}`
+      )
+
+      toast.success(
+        response.data.message || 'Feeding record deleted successfully.'
+      )
+
+      await fetchData()
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          'Failed to delete feeding record.'
+      )
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -169,10 +262,7 @@ const DailyFeedingManagement = () => {
         </div>
 
         <button
-          onClick={() => {
-            setForm(initialForm)
-            setShowModal(true)
-          }}
+          onClick={handleAdd}
           disabled={!ponds.length || !feedTypes.length}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -255,7 +345,7 @@ const DailyFeedingManagement = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[850px] text-left">
+          <table className="w-full min-w-[1050px] text-left">
             <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-5 py-4">Pond</th>
@@ -264,13 +354,14 @@ const DailyFeedingManagement = () => {
                 <th className="px-5 py-4">Time</th>
                 <th className="px-5 py-4">Quantity Used</th>
                 <th className="px-5 py-4">Notes</th>
+                <th className="px-5 py-4 text-right">Actions</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-100 text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="py-12 text-center">
+                  <td colSpan="7" className="py-12 text-center">
                     <LoaderCircle
                       className="mx-auto animate-spin text-emerald-700"
                       size={25}
@@ -280,11 +371,8 @@ const DailyFeedingManagement = () => {
                 </tr>
               ) : filteredFeedings.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="py-12 text-center">
-                    <Fish
-                      className="mx-auto text-slate-300"
-                      size={32}
-                    />
+                  <td colSpan="7" className="py-12 text-center">
+                    <Fish className="mx-auto text-slate-300" size={32} />
                     <p className="mt-2 font-medium text-slate-600">
                       No feeding records found
                     </p>
@@ -299,6 +387,7 @@ const DailyFeedingManagement = () => {
                     <td className="px-5 py-4 font-semibold text-slate-800">
                       {item.pond_name}
                     </td>
+
                     <td className="px-5 py-4">
                       <p className="font-medium text-slate-800">
                         {item.feed_name}
@@ -309,20 +398,50 @@ const DailyFeedingManagement = () => {
                         </p>
                       )}
                     </td>
+
                     <td className="px-5 py-4 text-slate-600">
                       {formatDate(item.feeding_date)}
                     </td>
+
                     <td className="px-5 py-4 text-slate-600">
                       {item.feeding_time || '—'}
                     </td>
+
                     <td className="px-5 py-4 font-semibold text-emerald-700">
                       {Number(item.quantity_kg).toLocaleString('en-US', {
                         maximumFractionDigits: 3,
                       })}{' '}
                       kg
                     </td>
+
                     <td className="max-w-48 truncate px-5 py-4 text-slate-500">
                       {item.notes || '—'}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleEdit(item)}
+                          disabled={deletingId === item.id}
+                          title="Edit"
+                          className="rounded-lg border border-blue-100 p-2 text-blue-600 transition hover:bg-blue-50 disabled:opacity-50"
+                        >
+                          <Pencil size={16} />
+                        </button>
+
+                        <button
+                          onClick={() => handleDelete(item)}
+                          disabled={deletingId === item.id}
+                          title="Delete"
+                          className="rounded-lg border border-red-100 p-2 text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {deletingId === item.id ? (
+                            <LoaderCircle size={16} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={16} />
+                          )}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -336,23 +455,26 @@ const DailyFeedingManagement = () => {
         </div>
       </div>
 
-      {/* Add Feeding Modal */}
+      {/* Add / Edit Feeding Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4">
           <div className="my-auto w-full max-w-xl rounded-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
-                  Record Daily Feeding
+                  {editingId ? 'Edit Daily Feeding' : 'Record Daily Feeding'}
                 </h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Enter the feed consumption details.
+                  {editingId
+                    ? 'Update the feeding record details.'
+                    : 'Enter the feed consumption details.'}
                 </p>
               </div>
 
               <button
-                onClick={() => setShowModal(false)}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                onClick={handleCloseModal}
+                disabled={saving}
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
               >
                 <X size={20} />
               </button>
@@ -472,8 +594,9 @@ const DailyFeedingManagement = () => {
               <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
-                  className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  onClick={handleCloseModal}
+                  disabled={saving}
+                  className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -486,7 +609,7 @@ const DailyFeedingManagement = () => {
                   {saving && (
                     <LoaderCircle size={17} className="animate-spin" />
                   )}
-                  Save Feeding
+                  {editingId ? 'Update Feeding' : 'Save Feeding'}
                 </button>
               </div>
             </form>

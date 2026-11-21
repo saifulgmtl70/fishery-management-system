@@ -33,7 +33,7 @@ import dashboardRoutes from './routes/dashboardRoutes.js'
 
 import staffRoutes from './routes/staffRoutes.js'
 
-
+import db from './config/db.js'
 
 const app = express()
 
@@ -137,6 +137,24 @@ app.get('/health', (req, res) => {
     message: 'Fishery API is healthy.',
     timestamp: new Date().toISOString(),
   })
+})
+
+app.get('/health/db', async (req, res) => {
+  try {
+    await db.query('SELECT 1')
+
+    res.status(200).json({
+      success: true,
+      message: 'TiDB Database Connected Successfully!',
+    })
+  } catch (error) {
+    console.error('Database Health Check Failed:', error.message)
+
+    res.status(500).json({
+      success: false,
+      message: 'Database Connection Failed.',
+    })
+  }
 })
 
 export default app

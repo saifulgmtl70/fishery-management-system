@@ -30,7 +30,6 @@ import lakeRoutes from './routes/lakeRoutes.js'
 
 import dashboardRoutes from './routes/dashboardRoutes.js'
 
-
 import staffRoutes from './routes/staffRoutes.js'
 
 import db from './config/db.js'
@@ -38,12 +37,25 @@ import db from './config/db.js'
 const app = express()
 
 // ==========================================
-// MIDDLEWARE
+// CORS CONFIGURATION
 // ==========================================
 
+const allowedOrigins = [
+  'https://ourfishery.netlify.app',
+]
+
 app.use(cors({
-  origin: process.env.CLIENT_URL,
+  origin: (origin, callback) => {
+    // Allow requests without an Origin header (e.g. server-to-server)
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+
+    return callback(new Error('Not allowed by CORS'))
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }))
 
 app.use(express.json())
@@ -76,7 +88,6 @@ app.use('/fish-stockings', fishStockingRoutes)
 
 app.use('/fish-mortalities', fishMortalityRoutes)
 
-
 app.use('/fish-sales', fishSaleRoutes)
 
 // ==========================================
@@ -99,10 +110,7 @@ app.use('/feed-stock', feedStockRoutes)
 
 app.use('/dealers', dealerRoutes)
 
-
 app.use('/staff', staffRoutes)
-
-
 
 // ==========================================
 // EXPENSE MANAGEMENT ROUTES
@@ -111,7 +119,6 @@ app.use('/staff', staffRoutes)
 app.use('/expenses', expenseRoutes)
 
 app.use('/finance', financeRoutes)
-
 
 app.use('/dashboard', dashboardRoutes)
 
@@ -138,6 +145,10 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
   })
 })
+
+// ==========================================
+// DATABASE HEALTH CHECK
+// ==========================================
 
 app.get('/health/db', async (req, res) => {
   try {

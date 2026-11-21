@@ -69,8 +69,8 @@ const changePasswordSchema = z.object({
 
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax',
+  secure: true,
+  sameSite: 'none',
   path: '/',
 }
 
@@ -285,7 +285,6 @@ export const updateProfile = async (req, res) => {
 
     const updatedPhone = updates.phone ?? currentUser.phone
 
-    // Check whether the email is already used by another account.
     if (updatedEmail.toLowerCase() !== currentUser.email.toLowerCase()) {
       const [emailUsers] = await db.execute(
         `SELECT id
@@ -396,7 +395,6 @@ export const changePassword = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(newPassword, 12)
 
-    // Increment token_version to invalidate existing sessions.
     await db.execute(
       `UPDATE users
        SET password = ?, token_version = token_version + 1
@@ -404,7 +402,6 @@ export const changePassword = async (req, res) => {
       [hashedPassword, req.user.id]
     )
 
-    // Force the admin to log in again.
     clearAuthCookie(res)
 
     return res.status(200).json({

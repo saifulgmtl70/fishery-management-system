@@ -29,9 +29,14 @@ const getToday = () => {
   return `${year}-${month}-${day}`
 }
 
-// Convert API date into Bangladesh local date (YYYY-MM-DD)
+// Convert API date into Bangladesh local date
 const getDhakaDate = (date) => {
   if (!date) return ''
+
+  // MySQL DATE format: YYYY-MM-DD
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return date
+  }
 
   const parsedDate = new Date(date)
 
@@ -67,8 +72,9 @@ const formatDate = (date) => {
 // ==========================================
 
 const initialForm = {
-  feed_type_id: '',
-  supplier_id: '',
+  feed_name: '',
+  brand: '',
+  supplier_name: '',
   purchase_date: getToday(),
   quantity_kg: '',
   unit_price: '',
@@ -93,8 +99,6 @@ const formatMoney = (amount) => {
 
 const FeedPurchaseManagement = () => {
   const [purchases, setPurchases] = useState([])
-  const [feedTypes, setFeedTypes] = useState([])
-  const [suppliers, setSuppliers] = useState([])
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -113,26 +117,9 @@ const FeedPurchaseManagement = () => {
     try {
       setLoading(true)
 
-      const [purchaseResponse, feedResponse, supplierResponse] =
-        await Promise.all([
-          api.get('/feed-purchases'),
-          api.get('/feed-types'),
-          api.get('/feed-suppliers'),
-        ])
+      const purchaseResponse = await api.get('/feed-purchases')
 
       setPurchases(purchaseResponse.data.purchases || [])
-
-      setFeedTypes(
-        (feedResponse.data.feedTypes || []).filter(
-          (item) => item.status === 'active'
-        )
-      )
-
-      setSuppliers(
-        (supplierResponse.data.suppliers || []).filter(
-          (item) => item.status === 'active'
-        )
-      )
     } catch (error) {
       toast.error(
         error.response?.data?.message ||
@@ -203,14 +190,10 @@ const FeedPurchaseManagement = () => {
     setEditingPurchase(purchase)
 
     setForm({
-      feed_type_id: String(purchase.feed_type_id),
-
-      supplier_id: purchase.supplier_id
-        ? String(purchase.supplier_id)
-        : '',
-
+      feed_name: purchase.feed_name || '',
+      brand: purchase.brand || '',
+      supplier_name: purchase.supplier_name || '',
       purchase_date: getDhakaDate(purchase.purchase_date) || getToday(),
-
       quantity_kg: String(purchase.quantity_kg || ''),
       unit_price: String(purchase.unit_price || ''),
       invoice_number: purchase.invoice_number || '',
@@ -240,8 +223,8 @@ const FeedPurchaseManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!form.feed_type_id) {
-      toast.error('Please select a feed type.')
+    if (!form.feed_name.trim()) {
+      toast.error('Please enter feed name.')
       return
     }
 
@@ -259,16 +242,14 @@ const FeedPurchaseManagement = () => {
     }
 
     const payload = {
-      ...form,
-
-      feed_type_id: Number(form.feed_type_id),
-
-      supplier_id: form.supplier_id
-        ? Number(form.supplier_id)
-        : null,
-
+      feed_name: form.feed_name.trim(),
+      brand: form.brand.trim(),
+      supplier_name: form.supplier_name.trim(),
+      purchase_date: form.purchase_date,
       quantity_kg: Number(form.quantity_kg),
       unit_price: Number(form.unit_price),
+      invoice_number: form.invoice_number.trim(),
+      notes: form.notes.trim(),
     }
 
     try {
@@ -289,7 +270,10 @@ const FeedPurchaseManagement = () => {
 
       setShowModal(false)
       setEditingPurchase(null)
-      setForm(initialForm)
+      setForm({
+        ...initialForm,
+        purchase_date: getToday(),
+      })
 
       await fetchData()
     } catch (error) {
@@ -651,6 +635,7 @@ const FeedPurchaseManagement = () => {
               </div>
 
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
               >
@@ -665,68 +650,59 @@ const FeedPurchaseManagement = () => {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
-                {/* Feed Type */}
+                {/* Feed Name */}
 
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                    Feed Type *
+                    Feed Name *
                   </label>
 
-                  <select
-                    name="feed_type_id"
-                    value={form.feed_type_id}
+                  <input
+                    type="text"
+                    name="feed_name"
+                    value={form.feed_name}
                     onChange={handleChange}
                     required
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-600"
-                  >
-                    <option value="">
-                      Select Feed Type
-                    </option>
-
-                    {feedTypes.map((feed) => (
-                      <option key={feed.id} value={feed.id}>
-                        {feed.feed_name}
-                        {feed.brand ? ` - ${feed.brand}` : ''}
-                      </option>
-                    ))}
-                  </select>
-
-                  {feedTypes.length === 0 && (
-                    <p className="mt-1 text-xs text-amber-600">
-                      Add an active feed type first.
-                    </p>
-                  )}
+                    maxLength={120}
+                    placeholder="e.g. Grower Feed"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  />
                 </div>
 
-                {/* Supplier */}
+                {/* Brand */}
 
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                    Supplier
+                    Brand
                   </label>
 
-                  <select
-                    name="supplier_id"
-                    value={form.supplier_id}
+                  <input
+                    type="text"
+                    name="brand"
+                    value={form.brand}
                     onChange={handleChange}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-600"
-                  >
-                    <option value="">
-                      Select Supplier (Optional)
-                    </option>
+                    maxLength={100}
+                    placeholder="e.g. Quality Feed"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  />
+                </div>
 
-                    {suppliers.map((supplier) => (
-                      <option key={supplier.id} value={supplier.id}>
-                        {supplier.supplier_name}
-                      </option>
-                    ))}
-                  </select>
+                {/* Supplier Name */}
 
-                  {suppliers.length === 0 && (
-                    <p className="mt-1 text-xs text-slate-400">
-                      No active suppliers available.
-                    </p>
-                  )}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Supplier Name
+                  </label>
+
+                  <input
+                    type="text"
+                    name="supplier_name"
+                    value={form.supplier_name}
+                    onChange={handleChange}
+                    maxLength={150}
+                    placeholder="e.g. Rahman Feed Store"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  />
                 </div>
 
                 {/* Purchase Date */}
@@ -872,7 +848,7 @@ const FeedPurchaseManagement = () => {
 
                 <button
                   type="submit"
-                  disabled={saving || feedTypes.length === 0}
+                  disabled={saving}
                   className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving && (
